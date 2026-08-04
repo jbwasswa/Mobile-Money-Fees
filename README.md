@@ -1,20 +1,22 @@
-# Bank 2 Wallet
+# Mobile Money Fees
 
-Native Android calculator for mobile money wallet-to-bank transfers.
+Native Android calculator for Uganda mobile money transaction fees.
 
-The app embeds the MTN and Airtel fee bands from:
+The app embeds MTN and Airtel fee bands for common transaction types.
 
-```text
-D:\Bank 2 Wallet\QQQ_WALLET TO BANK RATES 2025_VLOOK.xlsx
-```
+Current transaction options:
 
-## Features
+- Mobile to Mobile
+- Mobile to Bank
+- Bill Payment
+- Premium Bill Payment
 
-- Select Airtel or MTN.
-- Enter wallet balance, bank balance, and transfer amount.
-- Automatically applies the matching transfer fee band.
-- Shows wallet debit, new wallet balance, and new bank balance.
-- Carry the result forward as the starting balance for the next transaction.
+Provider colors:
+
+- Airtel: red
+- MTN: yellow
+
+The first version was based on `D:\Bank 2 Wallet\QQQ_WALLET TO BANK RATES 2025_VLOOK.xlsx`; this version expands it with published MTN and Airtel tariff categories.
 
 ## Build
 

@@ -1,6 +1,7 @@
 package ug.co.targetfinance.bank2wallet;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -13,7 +14,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
-import android.content.Context;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -29,36 +29,102 @@ public class MainActivity extends Activity {
     private final int navy = Color.rgb(16, 43, 51);
     private final int deepNavy = Color.rgb(7, 25, 29);
     private final int teal = Color.rgb(36, 185, 154);
-    private final int blue = Color.rgb(59, 130, 246);
+    private final int airtelRed = Color.rgb(224, 0, 0);
+    private final int mtnYellow = Color.rgb(255, 204, 0);
     private final int muted = Color.rgb(92, 111, 122);
     private final int danger = Color.rgb(200, 35, 51);
     private final int border = Color.rgb(207, 222, 224);
     private final int pageBg = Color.rgb(241, 247, 247);
 
-    private static final FeeBand[] MTN_BANDS = {
-            new FeeBand(2501, 125000, 1500),
-            new FeeBand(125001, 250000, 2250),
-            new FeeBand(250001, 500000, 4100),
-            new FeeBand(500001, 1000000, 6150),
-            new FeeBand(1000001, 2000000, 9250),
-            new FeeBand(2000001, 5000000, 11300)
+    private static final int MOBILE_TO_MOBILE = 1;
+    private static final int MOBILE_TO_BANK = 2;
+    private static final int BILL_PAYMENT = 3;
+    private static final int PREMIUM_BILL_PAYMENT = 4;
+
+    private static final FeeBand[] MTN_MOBILE_TO_MOBILE = {
+            new FeeBand(500, 2500, 100), new FeeBand(2501, 5000, 100),
+            new FeeBand(5001, 15000, 500), new FeeBand(15001, 30000, 500),
+            new FeeBand(30001, 45000, 500), new FeeBand(45001, 60000, 500),
+            new FeeBand(60001, 125000, 1000), new FeeBand(125001, 250000, 1000),
+            new FeeBand(250001, 500000, 1000), new FeeBand(500001, 1000000, 1500),
+            new FeeBand(1000001, 2000000, 2000), new FeeBand(2000001, 4000000, 2000),
+            new FeeBand(4000001, 5000000, 2000)
     };
 
-    private static final FeeBand[] AIRTEL_BANDS = {
-            new FeeBand(500, 15000, 700),
-            new FeeBand(15001, 30000, 880),
-            new FeeBand(30001, 45000, 1210),
-            new FeeBand(45001, 125000, 1500),
-            new FeeBand(125001, 250000, 2250),
-            new FeeBand(250001, 500000, 4100),
-            new FeeBand(500001, 1000000, 6150),
-            new FeeBand(1000001, 2000000, 9250),
-            new FeeBand(2000001, 5000000, 11300)
+    private static final FeeBand[] MTN_MOBILE_TO_BANK = {
+            new FeeBand(2501, 5000, 1500), new FeeBand(5001, 15000, 1500),
+            new FeeBand(15001, 30000, 1500), new FeeBand(30001, 45000, 1500),
+            new FeeBand(45001, 60000, 1500), new FeeBand(60001, 125000, 1500),
+            new FeeBand(125001, 250000, 2250), new FeeBand(250001, 500000, 4100),
+            new FeeBand(500001, 1000000, 6150), new FeeBand(1000001, 2000000, 9250),
+            new FeeBand(2000001, 4000000, 11300), new FeeBand(4000001, 5000000, 11300)
     };
 
-    private RadioGroup providerGroup;
+    private static final FeeBand[] MTN_BILL_PAYMENT = {
+            new FeeBand(500, 2500, 110), new FeeBand(2501, 5000, 150),
+            new FeeBand(5001, 15000, 550), new FeeBand(15001, 30000, 650),
+            new FeeBand(30001, 45000, 750), new FeeBand(45001, 60000, 850),
+            new FeeBand(60001, 125000, 950), new FeeBand(125001, 250000, 1050),
+            new FeeBand(250001, 500000, 1300), new FeeBand(500001, 1000000, 3350),
+            new FeeBand(1000001, 2000000, 5750), new FeeBand(2000001, 4000000, 5750),
+            new FeeBand(4000001, 5000000, 5750)
+    };
+
+    private static final FeeBand[] MTN_PREMIUM_BILL_PAYMENT = {
+            new FeeBand(500, 2500, 190), new FeeBand(2501, 5000, 600),
+            new FeeBand(5001, 15000, 1000), new FeeBand(15001, 30000, 1600),
+            new FeeBand(30001, 45000, 2100), new FeeBand(45001, 60000, 2800),
+            new FeeBand(60001, 125000, 3700), new FeeBand(125001, 250000, 4150),
+            new FeeBand(250001, 500000, 5300), new FeeBand(500001, 1000000, 6300),
+            new FeeBand(1000001, 2000000, 6300), new FeeBand(2000001, 4000000, 6300),
+            new FeeBand(4000001, 5000000, 6300)
+    };
+
+    private static final FeeBand[] AIRTEL_MOBILE_TO_MOBILE = {
+            new FeeBand(500, 2500, 500), new FeeBand(2501, 5000, 500),
+            new FeeBand(5001, 15000, 1000), new FeeBand(15001, 30000, 1000),
+            new FeeBand(30001, 45000, 1100), new FeeBand(45001, 60000, 1100),
+            new FeeBand(60001, 125000, 1400), new FeeBand(125001, 250000, 1400),
+            new FeeBand(250001, 500000, 1400), new FeeBand(500001, 1000000, 2200),
+            new FeeBand(1000001, 2000000, 2200), new FeeBand(2000001, 3000000, 2200),
+            new FeeBand(3000001, 4000000, 2200), new FeeBand(4000001, 5000000, 2200)
+    };
+
+    private static final FeeBand[] AIRTEL_MOBILE_TO_BANK = {
+            new FeeBand(5001, 15000, 700), new FeeBand(15001, 30000, 880),
+            new FeeBand(30001, 45000, 1210), new FeeBand(45001, 60000, 1500),
+            new FeeBand(60001, 125000, 1500), new FeeBand(125001, 250000, 2250),
+            new FeeBand(250001, 500000, 4100), new FeeBand(500001, 1000000, 6150),
+            new FeeBand(1000001, 2000000, 9250), new FeeBand(2000001, 3000000, 11300),
+            new FeeBand(3000001, 4000000, 11300), new FeeBand(4000001, 5000000, 11300)
+    };
+
+    private static final FeeBand[] AIRTEL_BILL_PAYMENT = {
+            new FeeBand(500, 2500, 120), new FeeBand(2501, 5000, 150),
+            new FeeBand(5001, 15000, 550), new FeeBand(15001, 30000, 650),
+            new FeeBand(30001, 45000, 750), new FeeBand(45001, 60000, 850),
+            new FeeBand(60001, 125000, 950), new FeeBand(125001, 250000, 1050),
+            new FeeBand(250001, 500000, 1300), new FeeBand(500001, 1000000, 3350),
+            new FeeBand(1000001, 2000000, 5750), new FeeBand(2000001, 4000000, 5750),
+            new FeeBand(4000001, 5000000, 5750)
+    };
+
+    private static final FeeBand[] AIRTEL_PREMIUM_BILL_PAYMENT = {
+            new FeeBand(500, 2500, 190), new FeeBand(2501, 5000, 330),
+            new FeeBand(5001, 15000, 1000), new FeeBand(15001, 30000, 1600),
+            new FeeBand(30001, 45000, 2000), new FeeBand(45001, 60000, 2650),
+            new FeeBand(60001, 125000, 3500), new FeeBand(125001, 250000, 3950),
+            new FeeBand(250001, 500000, 5050), new FeeBand(500001, 1000000, 6300),
+            new FeeBand(1000001, 2000000, 6300), new FeeBand(2000001, 4000000, 6300),
+            new FeeBand(4000001, 5000000, 6300)
+    };
+
     private RadioButton airtelOption;
     private RadioButton mtnOption;
+    private RadioButton mobileOption;
+    private RadioButton bankOption;
+    private RadioButton billOption;
+    private RadioButton premiumBillOption;
     private EditText walletInput;
     private EditText bankInput;
     private EditText amountInput;
@@ -69,6 +135,7 @@ public class MainActivity extends Activity {
     private TextView bankValue;
     private TextView totalDebitValue;
     private TextView bandValue;
+    private TextView typeNoteValue;
 
     private long lastNewWallet = 0;
     private long lastNewBank = 0;
@@ -104,25 +171,35 @@ public class MainActivity extends Activity {
         ));
 
         LinearLayout form = card();
-        TextView title = title("Wallet to Bank");
+        TextView title = title("Mobile Money Fees");
         title.setPadding(0, 0, 0, dp(12));
         form.addView(title);
 
-        providerGroup = new RadioGroup(this);
-        providerGroup.setOrientation(RadioGroup.HORIZONTAL);
-        providerGroup.setGravity(Gravity.CENTER);
-        providerGroup.setBackground(makeRoundRect(Color.rgb(247, 250, 250), border, dp(12)));
-        providerGroup.setPadding(dp(6), dp(6), dp(6), dp(6));
-
-        airtelOption = providerOption("Airtel", true);
-        mtnOption = providerOption("MTN", false);
+        RadioGroup providerGroup = choiceGroup(RadioGroup.HORIZONTAL);
+        airtelOption = choice("Airtel", true);
+        mtnOption = choice("MTN", false);
         providerGroup.addView(airtelOption, optionParams());
         providerGroup.addView(mtnOption, optionParams());
         providerGroup.setOnCheckedChangeListener((group, checkedId) -> {
-            styleProviderOptions();
+            styleOptions();
             calculate();
         });
-        form.addView(providerGroup, marginBottom(dp(14)));
+        form.addView(providerGroup, marginBottom(dp(12)));
+
+        RadioGroup typeGroup = choiceGroup(RadioGroup.VERTICAL);
+        mobileOption = choice("Mobile to Mobile", true);
+        bankOption = choice("Mobile to Bank", false);
+        billOption = choice("Bill Payment", false);
+        premiumBillOption = choice("Premium Bill Payment", false);
+        typeGroup.addView(mobileOption, tallOptionParams());
+        typeGroup.addView(bankOption, tallOptionParams());
+        typeGroup.addView(billOption, tallOptionParams());
+        typeGroup.addView(premiumBillOption, tallOptionParams());
+        typeGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            styleOptions();
+            calculate();
+        });
+        form.addView(typeGroup, marginBottom(dp(14)));
 
         walletInput = moneyInput("Wallet balance");
         bankInput = moneyInput("Bank balance");
@@ -130,7 +207,7 @@ public class MainActivity extends Activity {
 
         form.addView(field("Wallet Balance", walletInput));
         form.addView(field("Bank Balance", bankInput));
-        form.addView(field("Transfer Amount", amountInput));
+        form.addView(field("Transaction Amount", amountInput));
 
         statusText = new TextView(this);
         statusText.setTextColor(muted);
@@ -156,7 +233,7 @@ public class MainActivity extends Activity {
                 1
         ));
         setContentView(root);
-        styleProviderOptions();
+        styleOptions();
     }
 
     private View buildHeader() {
@@ -166,14 +243,14 @@ public class MainActivity extends Activity {
         header.setBackgroundColor(navy);
 
         TextView appName = new TextView(this);
-        appName.setText("Bank 2 Wallet");
+        appName.setText("Mobile Money Fees");
         appName.setTextColor(Color.WHITE);
         appName.setTextSize(24);
         appName.setTypeface(Typeface.DEFAULT_BOLD);
         header.addView(appName);
 
         TextView subtitle = new TextView(this);
-        subtitle.setText("Mobile money transfer fee calculator");
+        subtitle.setText("MTN and Airtel tariff calculator");
         subtitle.setTextColor(Color.rgb(184, 219, 215));
         subtitle.setTextSize(13);
         subtitle.setPadding(0, dp(4), 0, 0);
@@ -194,11 +271,12 @@ public class MainActivity extends Activity {
         title.setPadding(0, 0, 0, dp(10));
         results.addView(title);
 
-        feeValue = resultRow(results, "Transfer Fee");
+        feeValue = resultRow(results, "Transaction Fee");
         totalDebitValue = resultRow(results, "Wallet Debit");
         walletValue = resultRow(results, "New Wallet Balance");
         bankValue = resultRow(results, "New Bank Balance");
         bandValue = resultRow(results, "Applied Band");
+        typeNoteValue = resultRow(results, "Table Used");
 
         carryButton = new Button(this);
         carryButton.setText("Use Result as Next Transaction");
@@ -230,7 +308,7 @@ public class MainActivity extends Activity {
         row.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
         TextView value = new TextView(this);
-        value.setText("UGX 0");
+        value.setText("-");
         value.setTextColor(deepNavy);
         value.setTextSize(15);
         value.setGravity(Gravity.END);
@@ -244,8 +322,7 @@ public class MainActivity extends Activity {
     private View field(String label, EditText input) {
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams wrapperParams = marginBottom(dp(12));
-        wrapper.setLayoutParams(wrapperParams);
+        wrapper.setLayoutParams(marginBottom(dp(12)));
 
         TextView labelView = new TextView(this);
         labelView.setText(label);
@@ -276,7 +353,16 @@ public class MainActivity extends Activity {
         return input;
     }
 
-    private RadioButton providerOption(String text, boolean checked) {
+    private RadioGroup choiceGroup(int orientation) {
+        RadioGroup group = new RadioGroup(this);
+        group.setOrientation(orientation);
+        group.setGravity(Gravity.CENTER);
+        group.setBackground(makeRoundRect(Color.rgb(247, 250, 250), border, dp(12)));
+        group.setPadding(dp(6), dp(6), dp(6), dp(6));
+        return group;
+    }
+
+    private RadioButton choice(String text, boolean checked) {
         RadioButton button = new RadioButton(this);
         button.setText(text);
         button.setId(View.generateViewId());
@@ -288,12 +374,25 @@ public class MainActivity extends Activity {
         return button;
     }
 
-    private void styleProviderOptions() {
-        styleProviderOption(airtelOption, airtelOption.isChecked());
-        styleProviderOption(mtnOption, mtnOption.isChecked());
+    private void styleOptions() {
+        styleProviderOption(airtelOption, airtelOption.isChecked(), airtelRed, Color.WHITE);
+        styleProviderOption(mtnOption, mtnOption.isChecked(), mtnYellow, deepNavy);
+        styleTypeOption(mobileOption, mobileOption.isChecked());
+        styleTypeOption(bankOption, bankOption.isChecked());
+        styleTypeOption(billOption, billOption.isChecked());
+        styleTypeOption(premiumBillOption, premiumBillOption.isChecked());
     }
 
-    private void styleProviderOption(RadioButton button, boolean selected) {
+    private void styleProviderOption(RadioButton button, boolean selected, int color, int selectedText) {
+        button.setTextColor(selected ? selectedText : deepNavy);
+        button.setBackground(makeRoundRect(
+                selected ? color : Color.TRANSPARENT,
+                selected ? color : Color.TRANSPARENT,
+                dp(10)
+        ));
+    }
+
+    private void styleTypeOption(RadioButton button, boolean selected) {
         button.setTextColor(selected ? Color.WHITE : deepNavy);
         button.setBackground(makeRoundRect(
                 selected ? teal : Color.TRANSPARENT,
@@ -315,11 +414,11 @@ public class MainActivity extends Activity {
         carryButton.setAlpha(0.55f);
 
         if (amount <= 0) {
-            showEmptyResult("Enter a transfer amount.");
+            showEmptyResult("Enter a transaction amount.");
             return;
         }
         if (band == null) {
-            showEmptyResult("Amount is outside the selected provider tariff range.");
+            showEmptyResult("Amount is outside the selected tariff range.");
             statusText.setTextColor(danger);
             return;
         }
@@ -327,7 +426,7 @@ public class MainActivity extends Activity {
         long fee = band.fee;
         long totalDebit = amount + fee;
         long newWallet = wallet - totalDebit;
-        long newBank = bank + amount;
+        long newBank = isBankTransfer() ? bank + amount : bank;
 
         lastNewWallet = newWallet;
         lastNewBank = newBank;
@@ -336,15 +435,16 @@ public class MainActivity extends Activity {
         feeValue.setText(money(fee));
         totalDebitValue.setText(money(totalDebit));
         walletValue.setText(money(newWallet));
-        bankValue.setText(money(newBank));
+        bankValue.setText(isBankTransfer() ? money(newBank) : "Not affected");
         bandValue.setText(formatPlain(band.min) + " - " + formatPlain(band.max));
+        typeNoteValue.setText(selectedProvider() + " / " + selectedTransactionName());
 
         if (newWallet < 0) {
             statusText.setText("Insufficient wallet balance after fee.");
             statusText.setTextColor(danger);
         } else {
-            statusText.setText("Fee applied from " + selectedProvider() + " tariff table.");
-            statusText.setTextColor(teal);
+            statusText.setText("Fee applied from " + selectedProvider() + " " + selectedTransactionName() + " table.");
+            statusText.setTextColor(selectedProvider().equals("MTN") ? Color.rgb(136, 102, 0) : airtelRed);
         }
 
         carryButton.setEnabled(true);
@@ -355,20 +455,49 @@ public class MainActivity extends Activity {
         feeValue.setText("UGX 0");
         totalDebitValue.setText("UGX 0");
         walletValue.setText("UGX 0");
-        bankValue.setText("UGX 0");
+        bankValue.setText(isBankTransfer() ? "UGX 0" : "Not affected");
         bandValue.setText("-");
+        typeNoteValue.setText(selectedProvider() + " / " + selectedTransactionName());
         statusText.setText(message);
         statusText.setTextColor(muted);
     }
 
     private FeeBand findBand(long amount) {
-        FeeBand[] bands = selectedProvider().equals("MTN") ? MTN_BANDS : AIRTEL_BANDS;
+        FeeBand[] bands = selectedBands();
         for (FeeBand band : bands) {
             if (amount >= band.min && amount <= band.max) {
                 return band;
             }
         }
         return null;
+    }
+
+    private FeeBand[] selectedBands() {
+        boolean mtn = selectedProvider().equals("MTN");
+        int type = selectedTransactionType();
+        if (type == MOBILE_TO_BANK) return mtn ? MTN_MOBILE_TO_BANK : AIRTEL_MOBILE_TO_BANK;
+        if (type == BILL_PAYMENT) return mtn ? MTN_BILL_PAYMENT : AIRTEL_BILL_PAYMENT;
+        if (type == PREMIUM_BILL_PAYMENT) return mtn ? MTN_PREMIUM_BILL_PAYMENT : AIRTEL_PREMIUM_BILL_PAYMENT;
+        return mtn ? MTN_MOBILE_TO_MOBILE : AIRTEL_MOBILE_TO_MOBILE;
+    }
+
+    private int selectedTransactionType() {
+        if (bankOption != null && bankOption.isChecked()) return MOBILE_TO_BANK;
+        if (billOption != null && billOption.isChecked()) return BILL_PAYMENT;
+        if (premiumBillOption != null && premiumBillOption.isChecked()) return PREMIUM_BILL_PAYMENT;
+        return MOBILE_TO_MOBILE;
+    }
+
+    private String selectedTransactionName() {
+        int type = selectedTransactionType();
+        if (type == MOBILE_TO_BANK) return "Mobile to Bank";
+        if (type == BILL_PAYMENT) return "Bill Payment";
+        if (type == PREMIUM_BILL_PAYMENT) return "Premium Bill Payment";
+        return "Mobile to Mobile";
+    }
+
+    private boolean isBankTransfer() {
+        return selectedTransactionType() == MOBILE_TO_BANK;
     }
 
     private String selectedProvider() {
@@ -431,12 +560,17 @@ public class MainActivity extends Activity {
     }
 
     private LinearLayout.LayoutParams optionParams() {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                0,
-                dp(42),
-                1
-        );
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(42), 1);
         params.setMargins(dp(3), 0, dp(3), 0);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams tallOptionParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(42)
+        );
+        params.setMargins(0, dp(2), 0, dp(2));
         return params;
     }
 
