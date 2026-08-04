@@ -31,12 +31,14 @@ public class MainActivity extends Activity {
     private final int navy = Color.rgb(16, 43, 51);
     private final int deepNavy = Color.rgb(7, 25, 29);
     private final int teal = Color.rgb(36, 185, 154);
+    private final int mint = Color.rgb(222, 248, 242);
     private final int airtelRed = Color.rgb(224, 0, 0);
     private final int mtnYellow = Color.rgb(255, 204, 0);
     private final int muted = Color.rgb(92, 111, 122);
     private final int danger = Color.rgb(200, 35, 51);
     private final int border = Color.rgb(207, 222, 224);
-    private final int pageBg = Color.rgb(241, 247, 247);
+    private final int pageBg = Color.rgb(235, 244, 243);
+    private final int softPanel = Color.rgb(247, 251, 251);
 
     private static final int MOBILE_TO_MOBILE = 1;
     private static final int MOBILE_TO_BANK = 2;
@@ -165,6 +167,8 @@ public class MainActivity extends Activity {
 
     private Spinner providerSpinner;
     private Spinner transactionTypeSpinner;
+    private TextView providerBadge;
+    private TextView typeBadge;
     private LinearLayout balanceSection;
     private View walletField;
     private View bankField;
@@ -210,16 +214,20 @@ public class MainActivity extends Activity {
 
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(16), dp(18), dp(16), dp(18));
+        page.setPadding(dp(14), dp(14), dp(14), dp(18));
         scroll.addView(page, new ScrollView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         ));
 
         LinearLayout form = card();
-        TextView title = title("Mobile Money Fees");
-        title.setPadding(0, 0, 0, dp(12));
+        TextView title = title("Transaction Setup");
+        title.setPadding(0, 0, 0, dp(4));
         form.addView(title);
+
+        TextView prompt = smallText("Choose a provider and enter the amount to preview the exact debit.");
+        prompt.setPadding(0, 0, 0, dp(14));
+        form.addView(prompt);
 
         providerSpinner = dropdown(PROVIDERS);
         transactionTypeSpinner = dropdown(TRANSACTION_TYPES);
@@ -246,8 +254,8 @@ public class MainActivity extends Activity {
         enforceBalancesCheck.setOnCheckedChangeListener((buttonView, isChecked) -> calculate());
         balanceSection.addView(enforceBalancesCheck);
 
-        form.addView(balanceSection);
         form.addView(field("Transaction Amount", amountInput));
+        form.addView(balanceSection);
 
         statusText = new TextView(this);
         statusText.setTextColor(muted);
@@ -285,22 +293,40 @@ public class MainActivity extends Activity {
     private View buildHeader() {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.VERTICAL);
-        header.setPadding(dp(18), dp(20), dp(18), dp(18));
+        header.setPadding(dp(18), dp(22), dp(18), dp(18));
         header.setBackgroundColor(navy);
 
         TextView appName = new TextView(this);
-        appName.setText("Mobile Money Fees");
+        appName.setText("Tariff Desk UG");
         appName.setTextColor(Color.WHITE);
-        appName.setTextSize(24);
+        appName.setTextSize(25);
         appName.setTypeface(Typeface.DEFAULT_BOLD);
         header.addView(appName);
 
         TextView subtitle = new TextView(this);
-        subtitle.setText("MTN and Airtel tariff calculator");
+        subtitle.setText("Fast fee checks for Airtel and MTN money moves");
         subtitle.setTextColor(Color.rgb(184, 219, 215));
         subtitle.setTextSize(13);
         subtitle.setPadding(0, dp(4), 0, 0);
         header.addView(subtitle);
+
+        LinearLayout badges = new LinearLayout(this);
+        badges.setOrientation(LinearLayout.HORIZONTAL);
+        badges.setPadding(0, dp(14), 0, 0);
+        providerBadge = badge("Airtel");
+        typeBadge = badge("Mobile to Mobile");
+        LinearLayout.LayoutParams providerParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                dp(34)
+        );
+        providerParams.setMargins(0, 0, dp(8), 0);
+        badges.addView(providerBadge, providerParams);
+        badges.addView(typeBadge, new LinearLayout.LayoutParams(
+                0,
+                dp(34),
+                1
+        ));
+        header.addView(badges);
         return header;
     }
 
@@ -313,14 +339,18 @@ public class MainActivity extends Activity {
         params.setMargins(0, dp(14), 0, 0);
         results.setLayoutParams(params);
 
-        TextView title = title("Result");
-        title.setPadding(0, 0, 0, dp(10));
+        TextView title = title("Cost Preview");
+        title.setPadding(0, 0, 0, dp(4));
         results.addView(title);
 
+        TextView caption = smallText("The amount below is what leaves the wallet.");
+        caption.setPadding(0, 0, 0, dp(12));
+        results.addView(caption);
+
+        totalDebitValue = heroResult(results);
         feeValue = resultRow(results, "Transaction Fee");
         taxRow = resultRowContainer(results, "Withdraw Tax");
         taxValue = (TextView) taxRow.getTag();
-        totalDebitValue = resultRow(results, "Wallet Debit");
         walletValue = resultRow(results, "New Wallet Balance");
         bankResultRow = resultRowContainer(results, "New Bank Balance");
         bankValue = (TextView) bankResultRow.getTag();
@@ -331,7 +361,7 @@ public class MainActivity extends Activity {
         carryButton.setTextSize(14);
         carryButton.setTypeface(Typeface.DEFAULT_BOLD);
         carryButton.setTextColor(Color.WHITE);
-        carryButton.setBackground(makeRoundRect(teal, teal, dp(12)));
+        carryButton.setBackground(makeRoundRect(teal, teal, dp(10)));
         carryButton.setOnClickListener(v -> carryBalances());
         LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -340,6 +370,30 @@ public class MainActivity extends Activity {
         buttonParams.setMargins(0, dp(12), 0, 0);
         results.addView(carryButton, buttonParams);
         return results;
+    }
+
+    private TextView heroResult(LinearLayout parent) {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(14), dp(12), dp(14), dp(12));
+        panel.setBackground(makeRoundRect(mint, Color.rgb(180, 228, 217), dp(8)));
+        parent.addView(panel, marginBottom(dp(10)));
+
+        TextView label = new TextView(this);
+        label.setText("Wallet Debit");
+        label.setTextColor(Color.rgb(38, 93, 84));
+        label.setTextSize(12);
+        label.setTypeface(Typeface.DEFAULT_BOLD);
+        panel.addView(label);
+
+        TextView value = new TextView(this);
+        value.setText("UGX 0");
+        value.setTextColor(deepNavy);
+        value.setTextSize(26);
+        value.setTypeface(Typeface.DEFAULT_BOLD);
+        value.setPadding(0, dp(3), 0, 0);
+        panel.addView(value);
+        return value;
     }
 
     private TextView resultRow(LinearLayout parent, String label) {
@@ -401,7 +455,7 @@ public class MainActivity extends Activity {
         input.setTextColor(deepNavy);
         input.setHintTextColor(muted);
         input.setPadding(dp(14), 0, dp(14), 0);
-        input.setBackground(makeRoundRect(Color.rgb(247, 250, 250), border, dp(12)));
+        input.setBackground(makeRoundRect(softPanel, border, dp(10)));
         input.setSelectAllOnFocus(true);
         return input;
     }
@@ -416,8 +470,27 @@ public class MainActivity extends Activity {
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
         spinner.setPadding(dp(10), 0, dp(10), 0);
-        spinner.setBackground(makeRoundRect(Color.rgb(247, 250, 250), border, dp(12)));
+        spinner.setBackground(makeRoundRect(softPanel, border, dp(10)));
         return spinner;
+    }
+
+    private TextView badge(String text) {
+        TextView badge = new TextView(this);
+        badge.setText(text);
+        badge.setGravity(Gravity.CENTER);
+        badge.setSingleLine(true);
+        badge.setTextSize(12);
+        badge.setTypeface(Typeface.DEFAULT_BOLD);
+        badge.setPadding(dp(12), 0, dp(12), 0);
+        return badge;
+    }
+
+    private TextView smallText(String text) {
+        TextView view = new TextView(this);
+        view.setText(text);
+        view.setTextColor(muted);
+        view.setTextSize(13);
+        return view;
     }
 
     private View dropdownField(String label, Spinner spinner) {
@@ -487,10 +560,24 @@ public class MainActivity extends Activity {
         int accent = selectedProvider().equals("MTN") ? mtnYellow : airtelRed;
         int text = selectedProvider().equals("MTN") ? deepNavy : Color.WHITE;
         if (providerSpinner != null) {
-            providerSpinner.setBackground(makeRoundRect(accent, accent, dp(12)));
+            providerSpinner.setBackground(makeRoundRect(accent, accent, dp(10)));
+        }
+        if (providerBadge != null) {
+            providerBadge.setText(selectedProvider());
+            providerBadge.setTextColor(text);
+            providerBadge.setBackground(makeRoundRect(accent, accent, dp(17)));
+        }
+        if (typeBadge != null) {
+            typeBadge.setText(selectedTransactionName());
+            typeBadge.setTextColor(Color.rgb(197, 237, 231));
+            typeBadge.setBackground(makeRoundRect(Color.rgb(22, 65, 72), Color.rgb(48, 110, 119), dp(17)));
         }
         if (statusText != null) {
             statusText.setTextColor(text == Color.WHITE ? airtelRed : Color.rgb(136, 102, 0));
+        }
+        if (carryButton != null) {
+            int buttonColor = selectedProvider().equals("MTN") ? deepNavy : airtelRed;
+            carryButton.setBackground(makeRoundRect(buttonColor, buttonColor, dp(10)));
         }
     }
 
@@ -681,7 +768,7 @@ public class MainActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(18), dp(18), dp(18), dp(18));
-        card.setBackground(makeRoundRect(Color.WHITE, Color.rgb(229, 238, 239), dp(16)));
+        card.setBackground(makeRoundRect(Color.WHITE, Color.rgb(219, 234, 235), dp(8)));
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             card.setElevation(dp(2));
         }

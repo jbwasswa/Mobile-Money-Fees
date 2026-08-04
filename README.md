@@ -1,4 +1,4 @@
-# Mobile Money Fees
+# Tariff Desk UG
 
 Native Android calculator for Uganda mobile money transaction fees.
 
