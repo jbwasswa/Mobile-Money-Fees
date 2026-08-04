@@ -15,13 +15,13 @@ Current transaction options:
 Provider and transaction type are selected from dropdown lists. Amount inputs
 format with thousands separators while typing.
 
-For Mobile to Bank only, wallet and bank balances are optional by default. Enable
-the balance requirement setting in the app when you want the calculator to enforce
-wallet and bank balances before carrying results forward.
+Use Balance Mode to switch between quick fee checks, wallet balance tracking, and
+wallet-plus-bank tracking for Mobile to Bank transactions. Balances are optional:
+the app shows before/after balances only when the matching starting balance is entered.
 
 For Cash Withdrawal, the app adds the withdrawal fee and 0.5% withdrawal tax.
-Wallet balance is optional by default and can be enforced with the same balance
-requirement setting.
+Wallet before/after tracking is available through Balance Mode, just like the
+other transaction types.
 
 Provider colors:
 

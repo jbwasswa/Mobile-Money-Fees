@@ -17,7 +17,6 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -52,6 +51,11 @@ public class MainActivity extends Activity {
             "Cash Withdrawal",
             "Bill Payment",
             "Premium Bill Payment"
+    };
+    private static final String[] BALANCE_MODES = {
+            "Track wallet",
+            "Quick fees",
+            "Track wallet + bank"
     };
 
     private static final FeeBand[] MTN_MOBILE_TO_MOBILE = {
@@ -167,12 +171,12 @@ public class MainActivity extends Activity {
 
     private Spinner providerSpinner;
     private Spinner transactionTypeSpinner;
+    private Spinner balanceModeSpinner;
     private TextView providerBadge;
     private TextView typeBadge;
     private LinearLayout balanceSection;
     private View walletField;
     private View bankField;
-    private CheckBox enforceBalancesCheck;
     private EditText walletInput;
     private EditText bankInput;
     private EditText amountInput;
@@ -231,28 +235,21 @@ public class MainActivity extends Activity {
 
         providerSpinner = dropdown(PROVIDERS);
         transactionTypeSpinner = dropdown(TRANSACTION_TYPES);
+        balanceModeSpinner = dropdown(BALANCE_MODES);
         form.addView(dropdownField("Provider", providerSpinner));
         form.addView(dropdownField("Transaction Type", transactionTypeSpinner));
+        form.addView(dropdownField("Balance Mode", balanceModeSpinner));
 
-        walletInput = moneyInput("Wallet balance");
-        bankInput = moneyInput("Bank balance");
+        walletInput = moneyInput("Wallet balance before");
+        bankInput = moneyInput("Bank balance before");
         amountInput = moneyInput("Transaction amount");
 
         balanceSection = new LinearLayout(this);
         balanceSection.setOrientation(LinearLayout.VERTICAL);
-        walletField = field("Wallet Balance", walletInput);
-        bankField = field("Bank Balance", bankInput);
+        walletField = field("Wallet Balance Before", walletInput);
+        bankField = field("Bank Balance Before", bankInput);
         balanceSection.addView(walletField);
         balanceSection.addView(bankField);
-
-        enforceBalancesCheck = new CheckBox(this);
-        enforceBalancesCheck.setText("Require balance details when they apply");
-        enforceBalancesCheck.setTextColor(deepNavy);
-        enforceBalancesCheck.setTextSize(13);
-        enforceBalancesCheck.setButtonTintList(android.content.res.ColorStateList.valueOf(teal));
-        enforceBalancesCheck.setPadding(0, 0, 0, dp(8));
-        enforceBalancesCheck.setOnCheckedChangeListener((buttonView, isChecked) -> calculate());
-        balanceSection.addView(enforceBalancesCheck);
 
         form.addView(field("Transaction Amount", amountInput));
         form.addView(balanceSection);
@@ -280,6 +277,7 @@ public class MainActivity extends Activity {
         };
         providerSpinner.setOnItemSelectedListener(dropdownListener);
         transactionTypeSpinner.setOnItemSelectedListener(dropdownListener);
+        balanceModeSpinner.setOnItemSelectedListener(dropdownListener);
 
         root.addView(scroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -351,8 +349,8 @@ public class MainActivity extends Activity {
         feeValue = resultRow(results, "Transaction Fee");
         taxRow = resultRowContainer(results, "Withdraw Tax");
         taxValue = (TextView) taxRow.getTag();
-        walletValue = resultRow(results, "New Wallet Balance");
-        bankResultRow = resultRowContainer(results, "New Bank Balance");
+        walletValue = resultRow(results, "Wallet Balance After");
+        bankResultRow = resultRowContainer(results, "Bank Balance After");
         bankValue = (TextView) bankResultRow.getTag();
 
         carryButton = new Button(this);
@@ -538,20 +536,25 @@ public class MainActivity extends Activity {
 
     private void updateDynamicSections() {
         boolean tracksWallet = tracksWalletBalance();
+        boolean tracksBank = tracksBankBalance();
         if (balanceSection != null) {
-            balanceSection.setVisibility(tracksWallet ? View.VISIBLE : View.GONE);
+            balanceSection.setVisibility(tracksWallet || tracksBank ? View.VISIBLE : View.GONE);
         }
         if (walletField != null) {
             walletField.setVisibility(tracksWallet ? View.VISIBLE : View.GONE);
         }
         if (bankField != null) {
-            bankField.setVisibility(isBankTransfer() ? View.VISIBLE : View.GONE);
+            bankField.setVisibility(tracksBank ? View.VISIBLE : View.GONE);
         }
         if (taxRow != null) {
             taxRow.setVisibility(isCashWithdrawal() ? View.VISIBLE : View.GONE);
         }
+        if (walletValue != null) {
+            View walletRow = (View) walletValue.getParent();
+            walletRow.setVisibility(tracksWallet ? View.VISIBLE : View.GONE);
+        }
         if (bankResultRow != null) {
-            bankResultRow.setVisibility(isBankTransfer() ? View.VISIBLE : View.GONE);
+            bankResultRow.setVisibility(tracksBank ? View.VISIBLE : View.GONE);
         }
         updateProviderAccent();
     }
@@ -589,7 +592,7 @@ public class MainActivity extends Activity {
         boolean bankTransfer = isBankTransfer();
         boolean cashWithdrawal = isCashWithdrawal();
         boolean tracksWallet = tracksWalletBalance();
-        boolean requireBalances = tracksWallet && enforceBalancesCheck != null && enforceBalancesCheck.isChecked();
+        boolean tracksBank = tracksBankBalance();
         boolean hasWallet = hasAmount(walletInput);
         boolean hasBank = hasAmount(bankInput);
 
@@ -625,26 +628,16 @@ public class MainActivity extends Activity {
         feeValue.setText(money(fee));
         taxValue.setText(cashWithdrawal ? money(tax) : "UGX 0");
         totalDebitValue.setText(money(totalDebit));
-        walletValue.setText(tracksWallet ? (hasWallet ? money(newWallet) : "Optional") : "Not tracked");
-        bankValue.setText(bankTransfer ? (hasBank ? money(newBank) : "Optional") : "Not affected");
+        walletValue.setText(tracksWallet ? (hasWallet ? money(newWallet) : "Enter wallet before") : "Not tracked");
+        bankValue.setText(tracksBank ? (hasBank ? money(newBank) : "Enter bank before") : "Not tracked");
 
-        if (requireBalances && !hasWallet) {
-            statusText.setText(cashWithdrawal
-                    ? "Wallet balance is required for Cash Withdrawal."
-                    : "Wallet balance is required for Mobile to Bank.");
-            statusText.setTextColor(danger);
-        } else if (requireBalances && bankTransfer && !hasBank) {
-            statusText.setText("Bank balance is required for Mobile to Bank.");
-            statusText.setTextColor(danger);
-        } else if (tracksWallet && hasWallet && newWallet < 0) {
+        if (tracksWallet && hasWallet && newWallet < 0) {
             statusText.setText("Insufficient wallet balance after fee.");
             statusText.setTextColor(danger);
         } else {
-            statusText.setText(tracksWallet && !requireBalances
-                    ? "Fee applied. Balance details are optional for this calculation."
-                    : "Fee calculated for " + selectedProvider() + " " + selectedTransactionName() + ".");
+            statusText.setText(balanceStatus(hasWallet, hasBank, bankTransfer, tracksWallet, tracksBank));
             statusText.setTextColor(selectedProvider().equals("MTN") ? Color.rgb(136, 102, 0) : airtelRed);
-            hasValidResult = tracksWallet && hasWallet && (!bankTransfer || hasBank);
+            hasValidResult = tracksWallet && hasWallet && (!tracksBank || hasBank);
         }
 
         carryButton.setEnabled(hasValidResult);
@@ -655,10 +648,26 @@ public class MainActivity extends Activity {
         feeValue.setText("UGX 0");
         taxValue.setText("UGX 0");
         totalDebitValue.setText("UGX 0");
-        walletValue.setText(tracksWalletBalance() ? "Optional" : "Not tracked");
-        bankValue.setText(isBankTransfer() ? "Optional" : "Not affected");
+        walletValue.setText(tracksWalletBalance() ? "Enter wallet before" : "Not tracked");
+        bankValue.setText(tracksBankBalance() ? "Enter bank before" : "Not tracked");
         statusText.setText(message);
         statusText.setTextColor(muted);
+    }
+
+    private String balanceStatus(boolean hasWallet, boolean hasBank, boolean bankTransfer, boolean tracksWallet, boolean tracksBank) {
+        if (!tracksWallet && !tracksBank) {
+            return "Fee calculated for " + selectedProvider() + " " + selectedTransactionName() + ".";
+        }
+        if (tracksWallet && !hasWallet) {
+            return "Fee applied. Enter wallet balance before to see the after balance.";
+        }
+        if (tracksBank && !hasBank) {
+            return "Wallet after is ready. Enter bank balance before to see bank after.";
+        }
+        if (bankTransfer && tracksBank) {
+            return "Wallet and bank balances updated for this Mobile to Bank transfer.";
+        }
+        return "Wallet balance updated for this " + selectedTransactionName() + ".";
     }
 
     private FeeBand findBand(long amount) {
@@ -708,7 +717,15 @@ public class MainActivity extends Activity {
     }
 
     private boolean tracksWalletBalance() {
-        return isBankTransfer() || isCashWithdrawal();
+        return selectedBalanceMode() != 1;
+    }
+
+    private boolean tracksBankBalance() {
+        return isBankTransfer() && selectedBalanceMode() == 2;
+    }
+
+    private int selectedBalanceMode() {
+        return balanceModeSpinner == null ? 0 : balanceModeSpinner.getSelectedItemPosition();
     }
 
     private String selectedProvider() {
@@ -718,7 +735,7 @@ public class MainActivity extends Activity {
     private void carryBalances() {
         if (!hasValidResult) return;
         walletInput.setText(formatPlain(lastNewWallet));
-        if (isBankTransfer()) {
+        if (tracksBankBalance()) {
             bankInput.setText(formatPlain(lastNewBank));
         }
         amountInput.setText("");
