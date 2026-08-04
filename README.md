@@ -15,9 +15,11 @@ Current transaction options:
 Provider and transaction type are selected from dropdown lists. Amount inputs
 format with thousands separators while typing.
 
-Use Balance Mode to switch between quick fee checks, wallet balance tracking, and
-wallet-plus-bank tracking for Mobile to Bank transactions. Balances are optional:
-the app shows before/after balances only when the matching starting balance is entered.
+Use Balance Mode to switch between quick fee checks and wallet balance tracking.
+Mobile to Bank also offers wallet-plus-bank tracking. Most transaction types
+default to Quick fees, while Mobile to Bank defaults to Wallet + bank. Balances
+are optional: the app shows before/after balances only when the matching starting
+balance is entered.
 
 For Cash Withdrawal, the app adds the withdrawal fee and 0.5% withdrawal tax.
 Wallet before/after tracking is available through Balance Mode, just like the

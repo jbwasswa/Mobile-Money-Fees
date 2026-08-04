@@ -53,9 +53,9 @@ public class MainActivity extends Activity {
             "Premium Bill Payment"
     };
     private static final String[] BALANCE_MODES = {
-            "Track wallet",
             "Quick fees",
-            "Track wallet + bank"
+            "Wallet only",
+            "Wallet + bank"
     };
 
     private static final FeeBand[] MTN_MOBILE_TO_MOBILE = {
@@ -192,6 +192,7 @@ public class MainActivity extends Activity {
     private long lastNewBank = 0;
     private boolean hasValidResult = false;
     private boolean formattingAmounts = false;
+    private boolean updatingBalanceModes = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -267,6 +268,9 @@ public class MainActivity extends Activity {
 
         AdapterView.OnItemSelectedListener dropdownListener = new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (parent == transactionTypeSpinner) {
+                    refreshBalanceModes();
+                }
                 updateDynamicSections();
                 calculate();
             }
@@ -282,6 +286,7 @@ public class MainActivity extends Activity {
                 1
         ));
         setContentView(root);
+        refreshBalanceModes();
         updateDynamicSections();
     }
 
@@ -315,8 +320,8 @@ public class MainActivity extends Activity {
         );
         providerParams.setMargins(0, 0, dp(8), 0);
 
-        headerControls.addView(compactDropdownField("Provider", providerSpinner), providerParams);
-        headerControls.addView(compactDropdownField("Transaction", transactionTypeSpinner), new LinearLayout.LayoutParams(
+        headerControls.addView(compactDropdownField("Network Provider", providerSpinner), providerParams);
+        headerControls.addView(compactDropdownField("Transaction Type", transactionTypeSpinner), new LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 0.56f
@@ -540,6 +545,7 @@ public class MainActivity extends Activity {
     }
 
     private void updateDynamicSections() {
+        if (updatingBalanceModes) return;
         boolean tracksWallet = tracksWalletBalance();
         boolean tracksBank = tracksBankBalance();
         if (balanceSection != null) {
@@ -562,6 +568,26 @@ public class MainActivity extends Activity {
             bankResultRow.setVisibility(tracksBank ? View.VISIBLE : View.GONE);
         }
         updateProviderAccent();
+    }
+
+    private void refreshBalanceModes() {
+        if (balanceModeSpinner == null || updatingBalanceModes) return;
+
+        updatingBalanceModes = true;
+        String[] modes = isBankTransfer()
+                ? BALANCE_MODES
+                : new String[]{"Quick fees", "Wallet only"};
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_item,
+                modes
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        balanceModeSpinner.setAdapter(adapter);
+
+        int selection = isBankTransfer() ? indexOf(modes, "Wallet + bank") : indexOf(modes, "Quick fees");
+        balanceModeSpinner.setSelection(selection);
+        updatingBalanceModes = false;
     }
 
     private void updateProviderAccent() {
@@ -725,7 +751,7 @@ public class MainActivity extends Activity {
     }
 
     private boolean tracksWalletBalance() {
-        return selectedBalanceMode() != 1;
+        return selectedBalanceMode() > 0;
     }
 
     private boolean tracksBankBalance() {
@@ -734,6 +760,15 @@ public class MainActivity extends Activity {
 
     private int selectedBalanceMode() {
         return balanceModeSpinner == null ? 0 : balanceModeSpinner.getSelectedItemPosition();
+    }
+
+    private int indexOf(String[] values, String target) {
+        for (int i = 0; i < values.length; i++) {
+            if (values[i].equals(target)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private String selectedProvider() {
