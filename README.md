@@ -8,6 +8,7 @@ Current transaction options:
 
 - Mobile to Mobile
 - Mobile to Bank
+- Cash Withdrawal
 - Bill Payment
 - Premium Bill Payment
 
@@ -17,6 +18,10 @@ format with thousands separators while typing.
 For Mobile to Bank only, wallet and bank balances are optional by default. Enable
 the balance requirement setting in the app when you want the calculator to enforce
 wallet and bank balances before carrying results forward.
+
+For Cash Withdrawal, the app adds the withdrawal fee and 0.5% withdrawal tax.
+Wallet balance is optional by default and can be enforced with the same balance
+requirement setting.
 
 Provider colors:
 

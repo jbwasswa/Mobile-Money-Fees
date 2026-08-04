@@ -42,10 +42,12 @@ public class MainActivity extends Activity {
     private static final int MOBILE_TO_BANK = 2;
     private static final int BILL_PAYMENT = 3;
     private static final int PREMIUM_BILL_PAYMENT = 4;
+    private static final int CASH_WITHDRAWAL = 5;
     private static final String[] PROVIDERS = {"Airtel", "MTN"};
     private static final String[] TRANSACTION_TYPES = {
             "Mobile to Mobile",
             "Mobile to Bank",
+            "Cash Withdrawal",
             "Bill Payment",
             "Premium Bill Payment"
     };
@@ -67,6 +69,22 @@ public class MainActivity extends Activity {
             new FeeBand(125001, 250000, 2250), new FeeBand(250001, 500000, 4100),
             new FeeBand(500001, 1000000, 6150), new FeeBand(1000001, 2000000, 9250),
             new FeeBand(2000001, 4000000, 11300), new FeeBand(4000001, 5000000, 11300)
+    };
+
+    private static final FeeBand[] MTN_CASH_WITHDRAWAL = {
+            new FeeBand(500, 2500, 330, 3, 13),
+            new FeeBand(2501, 5000, 440, 13, 25),
+            new FeeBand(5001, 15000, 700, 25, 75),
+            new FeeBand(15001, 30000, 880, 75, 150),
+            new FeeBand(30001, 45000, 1210, 150, 225),
+            new FeeBand(45001, 60000, 1500, 225, 300),
+            new FeeBand(60001, 125000, 1925, 300, 625),
+            new FeeBand(125001, 250000, 3575, 625, 1250),
+            new FeeBand(250001, 500000, 7000, 1250, 2500),
+            new FeeBand(500001, 1000000, 12500, 2500, 5000),
+            new FeeBand(1000001, 2000000, 15000, 5000, 10000),
+            new FeeBand(2000001, 4000000, 18000, 10000, 20000),
+            new FeeBand(4000001, 5000000, 20000, 20000, 35000)
     };
 
     private static final FeeBand[] MTN_BILL_PAYMENT = {
@@ -108,6 +126,23 @@ public class MainActivity extends Activity {
             new FeeBand(3000001, 4000000, 11300), new FeeBand(4000001, 5000000, 11300)
     };
 
+    private static final FeeBand[] AIRTEL_CASH_WITHDRAWAL = {
+            new FeeBand(500, 2500, 330, 0, 13),
+            new FeeBand(2501, 5000, 440, 13, 25),
+            new FeeBand(5001, 15000, 700, 25, 75),
+            new FeeBand(15001, 30000, 880, 75, 150),
+            new FeeBand(30001, 45000, 1210, 150, 225),
+            new FeeBand(45001, 60000, 1500, 225, 300),
+            new FeeBand(60001, 125000, 1925, 300, 625),
+            new FeeBand(125001, 250000, 3575, 625, 1250),
+            new FeeBand(250001, 500000, 7000, 1250, 2500),
+            new FeeBand(500001, 1000000, 12500, 2500, 5000),
+            new FeeBand(1000001, 2000000, 15000, 5000, 10000),
+            new FeeBand(2000001, 3000000, 18000, 10000, 15000),
+            new FeeBand(3000001, 4000000, 18000, 15000, 20000),
+            new FeeBand(4000001, 5000000, 18000, 20000, 25000)
+    };
+
     private static final FeeBand[] AIRTEL_BILL_PAYMENT = {
             new FeeBand(500, 2500, 120), new FeeBand(2501, 5000, 150),
             new FeeBand(5001, 15000, 550), new FeeBand(15001, 30000, 650),
@@ -131,6 +166,8 @@ public class MainActivity extends Activity {
     private Spinner providerSpinner;
     private Spinner transactionTypeSpinner;
     private LinearLayout balanceSection;
+    private View walletField;
+    private View bankField;
     private CheckBox enforceBalancesCheck;
     private EditText walletInput;
     private EditText bankInput;
@@ -138,11 +175,12 @@ public class MainActivity extends Activity {
     private Button carryButton;
     private TextView statusText;
     private TextView feeValue;
+    private TextView taxValue;
+    private LinearLayout taxRow;
     private TextView walletValue;
     private TextView bankValue;
+    private LinearLayout bankResultRow;
     private TextView totalDebitValue;
-    private TextView bandValue;
-    private TextView typeNoteValue;
 
     private long lastNewWallet = 0;
     private long lastNewBank = 0;
@@ -194,11 +232,13 @@ public class MainActivity extends Activity {
 
         balanceSection = new LinearLayout(this);
         balanceSection.setOrientation(LinearLayout.VERTICAL);
-        balanceSection.addView(field("Wallet Balance", walletInput));
-        balanceSection.addView(field("Bank Balance", bankInput));
+        walletField = field("Wallet Balance", walletInput);
+        bankField = field("Bank Balance", bankInput);
+        balanceSection.addView(walletField);
+        balanceSection.addView(bankField);
 
         enforceBalancesCheck = new CheckBox(this);
-        enforceBalancesCheck.setText("Require wallet and bank balances for Mobile to Bank");
+        enforceBalancesCheck.setText("Require balance details when they apply");
         enforceBalancesCheck.setTextColor(deepNavy);
         enforceBalancesCheck.setTextSize(13);
         enforceBalancesCheck.setButtonTintList(android.content.res.ColorStateList.valueOf(teal));
@@ -278,11 +318,12 @@ public class MainActivity extends Activity {
         results.addView(title);
 
         feeValue = resultRow(results, "Transaction Fee");
+        taxRow = resultRowContainer(results, "Withdraw Tax");
+        taxValue = (TextView) taxRow.getTag();
         totalDebitValue = resultRow(results, "Wallet Debit");
         walletValue = resultRow(results, "New Wallet Balance");
-        bankValue = resultRow(results, "New Bank Balance");
-        bandValue = resultRow(results, "Applied Band");
-        typeNoteValue = resultRow(results, "Table Used");
+        bankResultRow = resultRowContainer(results, "New Bank Balance");
+        bankValue = (TextView) bankResultRow.getTag();
 
         carryButton = new Button(this);
         carryButton.setText("Use Result as Next Transaction");
@@ -302,6 +343,11 @@ public class MainActivity extends Activity {
     }
 
     private TextView resultRow(LinearLayout parent, String label) {
+        LinearLayout row = resultRowContainer(parent, label);
+        return (TextView) row.getTag();
+    }
+
+    private LinearLayout resultRowContainer(LinearLayout parent, String label) {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -321,8 +367,9 @@ public class MainActivity extends Activity {
         value.setTypeface(Typeface.DEFAULT_BOLD);
         row.addView(value, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
+        row.setTag(value);
         parent.addView(row);
-        return value;
+        return row;
     }
 
     private View field(String label, EditText input) {
@@ -417,9 +464,21 @@ public class MainActivity extends Activity {
     }
 
     private void updateDynamicSections() {
-        boolean bankTransfer = isBankTransfer();
+        boolean tracksWallet = tracksWalletBalance();
         if (balanceSection != null) {
-            balanceSection.setVisibility(bankTransfer ? View.VISIBLE : View.GONE);
+            balanceSection.setVisibility(tracksWallet ? View.VISIBLE : View.GONE);
+        }
+        if (walletField != null) {
+            walletField.setVisibility(tracksWallet ? View.VISIBLE : View.GONE);
+        }
+        if (bankField != null) {
+            bankField.setVisibility(isBankTransfer() ? View.VISIBLE : View.GONE);
+        }
+        if (taxRow != null) {
+            taxRow.setVisibility(isCashWithdrawal() ? View.VISIBLE : View.GONE);
+        }
+        if (bankResultRow != null) {
+            bankResultRow.setVisibility(isBankTransfer() ? View.VISIBLE : View.GONE);
         }
         updateProviderAccent();
     }
@@ -441,7 +500,9 @@ public class MainActivity extends Activity {
         updateDynamicSections();
 
         boolean bankTransfer = isBankTransfer();
-        boolean requireBalances = bankTransfer && enforceBalancesCheck != null && enforceBalancesCheck.isChecked();
+        boolean cashWithdrawal = isCashWithdrawal();
+        boolean tracksWallet = tracksWalletBalance();
+        boolean requireBalances = tracksWallet && enforceBalancesCheck != null && enforceBalancesCheck.isChecked();
         boolean hasWallet = hasAmount(walletInput);
         boolean hasBank = hasAmount(bankInput);
 
@@ -453,7 +514,7 @@ public class MainActivity extends Activity {
         hasValidResult = false;
         carryButton.setEnabled(false);
         carryButton.setAlpha(0.55f);
-        carryButton.setVisibility(bankTransfer ? View.VISIBLE : View.GONE);
+        carryButton.setVisibility(tracksWallet ? View.VISIBLE : View.GONE);
 
         if (amount <= 0) {
             showEmptyResult("Enter a transaction amount.");
@@ -466,7 +527,8 @@ public class MainActivity extends Activity {
         }
 
         long fee = band.fee;
-        long totalDebit = amount + fee;
+        long tax = cashWithdrawal ? withdrawalTax(amount) : 0;
+        long totalDebit = amount + fee + tax;
         long newWallet = wallet - totalDebit;
         long newBank = bank + amount;
 
@@ -474,24 +536,28 @@ public class MainActivity extends Activity {
         lastNewBank = hasBank ? newBank : 0;
 
         feeValue.setText(money(fee));
+        taxValue.setText(cashWithdrawal ? money(tax) : "UGX 0");
         totalDebitValue.setText(money(totalDebit));
-        walletValue.setText(bankTransfer ? (hasWallet ? money(newWallet) : "Optional") : "Not tracked");
+        walletValue.setText(tracksWallet ? (hasWallet ? money(newWallet) : "Optional") : "Not tracked");
         bankValue.setText(bankTransfer ? (hasBank ? money(newBank) : "Optional") : "Not affected");
-        bandValue.setText(formatPlain(band.min) + " - " + formatPlain(band.max));
-        typeNoteValue.setText(selectedProvider() + " / " + selectedTransactionName());
 
-        if (requireBalances && (!hasWallet || !hasBank)) {
-            statusText.setText("Wallet and bank balances are required for Mobile to Bank.");
+        if (requireBalances && !hasWallet) {
+            statusText.setText(cashWithdrawal
+                    ? "Wallet balance is required for Cash Withdrawal."
+                    : "Wallet balance is required for Mobile to Bank.");
             statusText.setTextColor(danger);
-        } else if (bankTransfer && hasWallet && newWallet < 0) {
+        } else if (requireBalances && bankTransfer && !hasBank) {
+            statusText.setText("Bank balance is required for Mobile to Bank.");
+            statusText.setTextColor(danger);
+        } else if (tracksWallet && hasWallet && newWallet < 0) {
             statusText.setText("Insufficient wallet balance after fee.");
             statusText.setTextColor(danger);
         } else {
-            statusText.setText(bankTransfer && !requireBalances
-                    ? "Fee applied. Balances are optional for this Mobile to Bank calculation."
-                    : "Fee applied from " + selectedProvider() + " " + selectedTransactionName() + " table.");
+            statusText.setText(tracksWallet && !requireBalances
+                    ? "Fee applied. Balance details are optional for this calculation."
+                    : "Fee calculated for " + selectedProvider() + " " + selectedTransactionName() + ".");
             statusText.setTextColor(selectedProvider().equals("MTN") ? Color.rgb(136, 102, 0) : airtelRed);
-            hasValidResult = bankTransfer && hasWallet && hasBank;
+            hasValidResult = tracksWallet && hasWallet && (!bankTransfer || hasBank);
         }
 
         carryButton.setEnabled(hasValidResult);
@@ -500,11 +566,10 @@ public class MainActivity extends Activity {
 
     private void showEmptyResult(String message) {
         feeValue.setText("UGX 0");
+        taxValue.setText("UGX 0");
         totalDebitValue.setText("UGX 0");
-        walletValue.setText(isBankTransfer() ? "Optional" : "Not tracked");
+        walletValue.setText(tracksWalletBalance() ? "Optional" : "Not tracked");
         bankValue.setText(isBankTransfer() ? "Optional" : "Not affected");
-        bandValue.setText("-");
-        typeNoteValue.setText(selectedProvider() + " / " + selectedTransactionName());
         statusText.setText(message);
         statusText.setTextColor(muted);
     }
@@ -523,6 +588,7 @@ public class MainActivity extends Activity {
         boolean mtn = selectedProvider().equals("MTN");
         int type = selectedTransactionType();
         if (type == MOBILE_TO_BANK) return mtn ? MTN_MOBILE_TO_BANK : AIRTEL_MOBILE_TO_BANK;
+        if (type == CASH_WITHDRAWAL) return mtn ? MTN_CASH_WITHDRAWAL : AIRTEL_CASH_WITHDRAWAL;
         if (type == BILL_PAYMENT) return mtn ? MTN_BILL_PAYMENT : AIRTEL_BILL_PAYMENT;
         if (type == PREMIUM_BILL_PAYMENT) return mtn ? MTN_PREMIUM_BILL_PAYMENT : AIRTEL_PREMIUM_BILL_PAYMENT;
         return mtn ? MTN_MOBILE_TO_MOBILE : AIRTEL_MOBILE_TO_MOBILE;
@@ -531,14 +597,16 @@ public class MainActivity extends Activity {
     private int selectedTransactionType() {
         int position = transactionTypeSpinner == null ? 0 : transactionTypeSpinner.getSelectedItemPosition();
         if (position == 1) return MOBILE_TO_BANK;
-        if (position == 2) return BILL_PAYMENT;
-        if (position == 3) return PREMIUM_BILL_PAYMENT;
+        if (position == 2) return CASH_WITHDRAWAL;
+        if (position == 3) return BILL_PAYMENT;
+        if (position == 4) return PREMIUM_BILL_PAYMENT;
         return MOBILE_TO_MOBILE;
     }
 
     private String selectedTransactionName() {
         int type = selectedTransactionType();
         if (type == MOBILE_TO_BANK) return "Mobile to Bank";
+        if (type == CASH_WITHDRAWAL) return "Cash Withdrawal";
         if (type == BILL_PAYMENT) return "Bill Payment";
         if (type == PREMIUM_BILL_PAYMENT) return "Premium Bill Payment";
         return "Mobile to Mobile";
@@ -548,6 +616,14 @@ public class MainActivity extends Activity {
         return selectedTransactionType() == MOBILE_TO_BANK;
     }
 
+    private boolean isCashWithdrawal() {
+        return selectedTransactionType() == CASH_WITHDRAWAL;
+    }
+
+    private boolean tracksWalletBalance() {
+        return isBankTransfer() || isCashWithdrawal();
+    }
+
     private String selectedProvider() {
         return providerSpinner != null && providerSpinner.getSelectedItemPosition() == 1 ? "MTN" : "Airtel";
     }
@@ -555,7 +631,9 @@ public class MainActivity extends Activity {
     private void carryBalances() {
         if (!hasValidResult) return;
         walletInput.setText(formatPlain(lastNewWallet));
-        bankInput.setText(formatPlain(lastNewBank));
+        if (isBankTransfer()) {
+            bankInput.setText(formatPlain(lastNewBank));
+        }
         amountInput.setText("");
         amountInput.requestFocus();
         InputMethodManager keyboard = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -589,6 +667,10 @@ public class MainActivity extends Activity {
 
     private String money(long amount) {
         return "UGX " + formatPlain(amount);
+    }
+
+    private long withdrawalTax(long amount) {
+        return (long) Math.ceil(amount * 0.005d);
     }
 
     private String formatPlain(long amount) {
@@ -659,11 +741,19 @@ public class MainActivity extends Activity {
         final long min;
         final long max;
         final long fee;
+        final long taxMin;
+        final long taxMax;
 
         FeeBand(long min, long max, long fee) {
+            this(min, max, fee, 0, 0);
+        }
+
+        FeeBand(long min, long max, long fee, long taxMin, long taxMax) {
             this.min = min;
             this.max = max;
             this.fee = fee;
+            this.taxMin = taxMin;
+            this.taxMax = taxMax;
         }
     }
 }
