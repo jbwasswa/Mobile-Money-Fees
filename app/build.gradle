@@ -1,0 +1,16 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "ug.co.targetfinance.bank2wallet"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "ug.co.targetfinance.bank2wallet"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+    }
+}

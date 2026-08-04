@@ -1,0 +1,490 @@
+package ug.co.targetfinance.bank2wallet;
+
+import android.app.Activity;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Bundle;
+import android.text.Editable;
+import android.text.InputType;
+import android.text.TextWatcher;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
+import android.content.Context;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.ScrollView;
+import android.widget.TextView;
+
+import java.text.NumberFormat;
+import java.util.Locale;
+
+public class MainActivity extends Activity {
+    private final int navy = Color.rgb(16, 43, 51);
+    private final int deepNavy = Color.rgb(7, 25, 29);
+    private final int teal = Color.rgb(36, 185, 154);
+    private final int blue = Color.rgb(59, 130, 246);
+    private final int muted = Color.rgb(92, 111, 122);
+    private final int danger = Color.rgb(200, 35, 51);
+    private final int border = Color.rgb(207, 222, 224);
+    private final int pageBg = Color.rgb(241, 247, 247);
+
+    private static final FeeBand[] MTN_BANDS = {
+            new FeeBand(2501, 125000, 1500),
+            new FeeBand(125001, 250000, 2250),
+            new FeeBand(250001, 500000, 4100),
+            new FeeBand(500001, 1000000, 6150),
+            new FeeBand(1000001, 2000000, 9250),
+            new FeeBand(2000001, 5000000, 11300)
+    };
+
+    private static final FeeBand[] AIRTEL_BANDS = {
+            new FeeBand(500, 15000, 700),
+            new FeeBand(15001, 30000, 880),
+            new FeeBand(30001, 45000, 1210),
+            new FeeBand(45001, 125000, 1500),
+            new FeeBand(125001, 250000, 2250),
+            new FeeBand(250001, 500000, 4100),
+            new FeeBand(500001, 1000000, 6150),
+            new FeeBand(1000001, 2000000, 9250),
+            new FeeBand(2000001, 5000000, 11300)
+    };
+
+    private RadioGroup providerGroup;
+    private RadioButton airtelOption;
+    private RadioButton mtnOption;
+    private EditText walletInput;
+    private EditText bankInput;
+    private EditText amountInput;
+    private Button carryButton;
+    private TextView statusText;
+    private TextView feeValue;
+    private TextView walletValue;
+    private TextView bankValue;
+    private TextView totalDebitValue;
+    private TextView bandValue;
+
+    private long lastNewWallet = 0;
+    private long lastNewBank = 0;
+    private boolean hasValidResult = false;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        buildUi();
+        getWindow().setSoftInputMode(
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
+                        | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        );
+        calculate();
+        showDefaultKeyboard();
+    }
+
+    private void buildUi() {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(pageBg);
+        root.addView(buildHeader());
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(16), dp(18), dp(16), dp(18));
+        scroll.addView(page, new ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        LinearLayout form = card();
+        TextView title = title("Wallet to Bank");
+        title.setPadding(0, 0, 0, dp(12));
+        form.addView(title);
+
+        providerGroup = new RadioGroup(this);
+        providerGroup.setOrientation(RadioGroup.HORIZONTAL);
+        providerGroup.setGravity(Gravity.CENTER);
+        providerGroup.setBackground(makeRoundRect(Color.rgb(247, 250, 250), border, dp(12)));
+        providerGroup.setPadding(dp(6), dp(6), dp(6), dp(6));
+
+        airtelOption = providerOption("Airtel", true);
+        mtnOption = providerOption("MTN", false);
+        providerGroup.addView(airtelOption, optionParams());
+        providerGroup.addView(mtnOption, optionParams());
+        providerGroup.setOnCheckedChangeListener((group, checkedId) -> {
+            styleProviderOptions();
+            calculate();
+        });
+        form.addView(providerGroup, marginBottom(dp(14)));
+
+        walletInput = moneyInput("Wallet balance");
+        bankInput = moneyInput("Bank balance");
+        amountInput = moneyInput("Transaction amount");
+
+        form.addView(field("Wallet Balance", walletInput));
+        form.addView(field("Bank Balance", bankInput));
+        form.addView(field("Transfer Amount", amountInput));
+
+        statusText = new TextView(this);
+        statusText.setTextColor(muted);
+        statusText.setTextSize(13);
+        statusText.setPadding(0, 0, 0, dp(10));
+        form.addView(statusText);
+
+        page.addView(form);
+        page.addView(resultCard());
+
+        TextWatcher watcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { calculate(); }
+            @Override public void afterTextChanged(Editable s) {}
+        };
+        walletInput.addTextChangedListener(watcher);
+        bankInput.addTextChangedListener(watcher);
+        amountInput.addTextChangedListener(watcher);
+
+        root.addView(scroll, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1
+        ));
+        setContentView(root);
+        styleProviderOptions();
+    }
+
+    private View buildHeader() {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setPadding(dp(18), dp(20), dp(18), dp(18));
+        header.setBackgroundColor(navy);
+
+        TextView appName = new TextView(this);
+        appName.setText("Bank 2 Wallet");
+        appName.setTextColor(Color.WHITE);
+        appName.setTextSize(24);
+        appName.setTypeface(Typeface.DEFAULT_BOLD);
+        header.addView(appName);
+
+        TextView subtitle = new TextView(this);
+        subtitle.setText("Mobile money transfer fee calculator");
+        subtitle.setTextColor(Color.rgb(184, 219, 215));
+        subtitle.setTextSize(13);
+        subtitle.setPadding(0, dp(4), 0, 0);
+        header.addView(subtitle);
+        return header;
+    }
+
+    private View resultCard() {
+        LinearLayout results = card();
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, dp(14), 0, 0);
+        results.setLayoutParams(params);
+
+        TextView title = title("Result");
+        title.setPadding(0, 0, 0, dp(10));
+        results.addView(title);
+
+        feeValue = resultRow(results, "Transfer Fee");
+        totalDebitValue = resultRow(results, "Wallet Debit");
+        walletValue = resultRow(results, "New Wallet Balance");
+        bankValue = resultRow(results, "New Bank Balance");
+        bandValue = resultRow(results, "Applied Band");
+
+        carryButton = new Button(this);
+        carryButton.setText("Use Result as Next Transaction");
+        carryButton.setAllCaps(false);
+        carryButton.setTextSize(14);
+        carryButton.setTypeface(Typeface.DEFAULT_BOLD);
+        carryButton.setTextColor(Color.WHITE);
+        carryButton.setBackground(makeRoundRect(teal, teal, dp(12)));
+        carryButton.setOnClickListener(v -> carryBalances());
+        LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(50)
+        );
+        buttonParams.setMargins(0, dp(12), 0, 0);
+        results.addView(carryButton, buttonParams);
+        return results;
+    }
+
+    private TextView resultRow(LinearLayout parent, String label) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, dp(6), 0, dp(6));
+
+        TextView name = new TextView(this);
+        name.setText(label);
+        name.setTextColor(muted);
+        name.setTextSize(13);
+        row.addView(name, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        TextView value = new TextView(this);
+        value.setText("UGX 0");
+        value.setTextColor(deepNavy);
+        value.setTextSize(15);
+        value.setGravity(Gravity.END);
+        value.setTypeface(Typeface.DEFAULT_BOLD);
+        row.addView(value, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        parent.addView(row);
+        return value;
+    }
+
+    private View field(String label, EditText input) {
+        LinearLayout wrapper = new LinearLayout(this);
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams wrapperParams = marginBottom(dp(12));
+        wrapper.setLayoutParams(wrapperParams);
+
+        TextView labelView = new TextView(this);
+        labelView.setText(label);
+        labelView.setTextColor(deepNavy);
+        labelView.setTextSize(13);
+        labelView.setTypeface(Typeface.DEFAULT_BOLD);
+        labelView.setPadding(0, 0, 0, dp(5));
+        wrapper.addView(labelView);
+
+        wrapper.addView(input, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(54)
+        ));
+        return wrapper;
+    }
+
+    private EditText moneyInput(String hint) {
+        EditText input = new EditText(this);
+        input.setHint(hint);
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        input.setTextSize(16);
+        input.setTextColor(deepNavy);
+        input.setHintTextColor(muted);
+        input.setPadding(dp(14), 0, dp(14), 0);
+        input.setBackground(makeRoundRect(Color.rgb(247, 250, 250), border, dp(12)));
+        input.setSelectAllOnFocus(true);
+        return input;
+    }
+
+    private RadioButton providerOption(String text, boolean checked) {
+        RadioButton button = new RadioButton(this);
+        button.setText(text);
+        button.setId(View.generateViewId());
+        button.setTextSize(14);
+        button.setTypeface(Typeface.DEFAULT_BOLD);
+        button.setButtonDrawable(null);
+        button.setGravity(Gravity.CENTER);
+        button.setChecked(checked);
+        return button;
+    }
+
+    private void styleProviderOptions() {
+        styleProviderOption(airtelOption, airtelOption.isChecked());
+        styleProviderOption(mtnOption, mtnOption.isChecked());
+    }
+
+    private void styleProviderOption(RadioButton button, boolean selected) {
+        button.setTextColor(selected ? Color.WHITE : deepNavy);
+        button.setBackground(makeRoundRect(
+                selected ? teal : Color.TRANSPARENT,
+                selected ? teal : Color.TRANSPARENT,
+                dp(10)
+        ));
+    }
+
+    private void calculate() {
+        if (statusText == null) return;
+
+        long wallet = parseAmount(walletInput);
+        long bank = parseAmount(bankInput);
+        long amount = parseAmount(amountInput);
+        FeeBand band = findBand(amount);
+
+        hasValidResult = false;
+        carryButton.setEnabled(false);
+        carryButton.setAlpha(0.55f);
+
+        if (amount <= 0) {
+            showEmptyResult("Enter a transfer amount.");
+            return;
+        }
+        if (band == null) {
+            showEmptyResult("Amount is outside the selected provider tariff range.");
+            statusText.setTextColor(danger);
+            return;
+        }
+
+        long fee = band.fee;
+        long totalDebit = amount + fee;
+        long newWallet = wallet - totalDebit;
+        long newBank = bank + amount;
+
+        lastNewWallet = newWallet;
+        lastNewBank = newBank;
+        hasValidResult = true;
+
+        feeValue.setText(money(fee));
+        totalDebitValue.setText(money(totalDebit));
+        walletValue.setText(money(newWallet));
+        bankValue.setText(money(newBank));
+        bandValue.setText(formatPlain(band.min) + " - " + formatPlain(band.max));
+
+        if (newWallet < 0) {
+            statusText.setText("Insufficient wallet balance after fee.");
+            statusText.setTextColor(danger);
+        } else {
+            statusText.setText("Fee applied from " + selectedProvider() + " tariff table.");
+            statusText.setTextColor(teal);
+        }
+
+        carryButton.setEnabled(true);
+        carryButton.setAlpha(1f);
+    }
+
+    private void showEmptyResult(String message) {
+        feeValue.setText("UGX 0");
+        totalDebitValue.setText("UGX 0");
+        walletValue.setText("UGX 0");
+        bankValue.setText("UGX 0");
+        bandValue.setText("-");
+        statusText.setText(message);
+        statusText.setTextColor(muted);
+    }
+
+    private FeeBand findBand(long amount) {
+        FeeBand[] bands = selectedProvider().equals("MTN") ? MTN_BANDS : AIRTEL_BANDS;
+        for (FeeBand band : bands) {
+            if (amount >= band.min && amount <= band.max) {
+                return band;
+            }
+        }
+        return null;
+    }
+
+    private String selectedProvider() {
+        return mtnOption != null && mtnOption.isChecked() ? "MTN" : "Airtel";
+    }
+
+    private void carryBalances() {
+        if (!hasValidResult) return;
+        walletInput.setText(formatPlain(lastNewWallet));
+        bankInput.setText(formatPlain(lastNewBank));
+        amountInput.setText("");
+        amountInput.requestFocus();
+        InputMethodManager keyboard = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (keyboard != null) {
+            keyboard.showSoftInput(amountInput, InputMethodManager.SHOW_IMPLICIT);
+        }
+    }
+
+    private long parseAmount(EditText input) {
+        if (input == null) return 0;
+        String digits = input.getText().toString().replaceAll("[^0-9]", "");
+        if (digits.isEmpty()) return 0;
+        try {
+            return Long.parseLong(digits);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private String money(long amount) {
+        return "UGX " + formatPlain(amount);
+    }
+
+    private String formatPlain(long amount) {
+        return NumberFormat.getNumberInstance(Locale.US).format(amount);
+    }
+
+    private LinearLayout card() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(18), dp(18), dp(18), dp(18));
+        card.setBackground(makeRoundRect(Color.WHITE, Color.rgb(229, 238, 239), dp(16)));
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            card.setElevation(dp(2));
+        }
+        card.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        return card;
+    }
+
+    private TextView title(String text) {
+        TextView view = new TextView(this);
+        view.setText(text);
+        view.setTextColor(deepNavy);
+        view.setTextSize(18);
+        view.setTypeface(Typeface.DEFAULT_BOLD);
+        return view;
+    }
+
+    private LinearLayout.LayoutParams optionParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0,
+                dp(42),
+                1
+        );
+        params.setMargins(dp(3), 0, dp(3), 0);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams marginBottom(int bottom) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, 0, 0, bottom);
+        return params;
+    }
+
+    private GradientDrawable makeRoundRect(int fill, int stroke, int radius) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setShape(GradientDrawable.RECTANGLE);
+        drawable.setColor(fill);
+        drawable.setCornerRadius(radius);
+        if (stroke != Color.TRANSPARENT) {
+            drawable.setStroke(dp(1), stroke);
+        }
+        return drawable;
+    }
+
+    private void showDefaultKeyboard() {
+        if (amountInput == null) return;
+        amountInput.postDelayed(() -> {
+            amountInput.requestFocus();
+            InputMethodManager keyboard = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (keyboard != null) {
+                keyboard.showSoftInput(amountInput, InputMethodManager.SHOW_IMPLICIT);
+            }
+        }, 250);
+    }
+
+    private int dp(int value) {
+        float density = getResources().getDisplayMetrics().density;
+        return Math.round(value * density);
+    }
+
+    private static class FeeBand {
+        final long min;
+        final long max;
+        final long fee;
+
+        FeeBand(long min, long max, long fee) {
+            this.min = min;
+            this.max = max;
+            this.fee = fee;
+        }
+    }
+}
