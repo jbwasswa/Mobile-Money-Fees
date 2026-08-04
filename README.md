@@ -11,6 +11,13 @@ Current transaction options:
 - Bill Payment
 - Premium Bill Payment
 
+Provider and transaction type are selected from dropdown lists. Amount inputs
+format with thousands separators while typing.
+
+For Mobile to Bank only, wallet and bank balances are optional by default. Enable
+the balance requirement setting in the app when you want the calculator to enforce
+wallet and bank balances before carrying results forward.
+
 Provider colors:
 
 - Airtel: red

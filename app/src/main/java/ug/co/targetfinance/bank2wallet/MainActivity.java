@@ -14,12 +14,14 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import java.text.NumberFormat;
@@ -40,6 +42,13 @@ public class MainActivity extends Activity {
     private static final int MOBILE_TO_BANK = 2;
     private static final int BILL_PAYMENT = 3;
     private static final int PREMIUM_BILL_PAYMENT = 4;
+    private static final String[] PROVIDERS = {"Airtel", "MTN"};
+    private static final String[] TRANSACTION_TYPES = {
+            "Mobile to Mobile",
+            "Mobile to Bank",
+            "Bill Payment",
+            "Premium Bill Payment"
+    };
 
     private static final FeeBand[] MTN_MOBILE_TO_MOBILE = {
             new FeeBand(500, 2500, 100), new FeeBand(2501, 5000, 100),
@@ -119,12 +128,10 @@ public class MainActivity extends Activity {
             new FeeBand(4000001, 5000000, 6300)
     };
 
-    private RadioButton airtelOption;
-    private RadioButton mtnOption;
-    private RadioButton mobileOption;
-    private RadioButton bankOption;
-    private RadioButton billOption;
-    private RadioButton premiumBillOption;
+    private Spinner providerSpinner;
+    private Spinner transactionTypeSpinner;
+    private LinearLayout balanceSection;
+    private CheckBox enforceBalancesCheck;
     private EditText walletInput;
     private EditText bankInput;
     private EditText amountInput;
@@ -140,6 +147,7 @@ public class MainActivity extends Activity {
     private long lastNewWallet = 0;
     private long lastNewBank = 0;
     private boolean hasValidResult = false;
+    private boolean formattingAmounts = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -175,38 +183,30 @@ public class MainActivity extends Activity {
         title.setPadding(0, 0, 0, dp(12));
         form.addView(title);
 
-        RadioGroup providerGroup = choiceGroup(RadioGroup.HORIZONTAL);
-        airtelOption = choice("Airtel", true);
-        mtnOption = choice("MTN", false);
-        providerGroup.addView(airtelOption, optionParams());
-        providerGroup.addView(mtnOption, optionParams());
-        providerGroup.setOnCheckedChangeListener((group, checkedId) -> {
-            styleOptions();
-            calculate();
-        });
-        form.addView(providerGroup, marginBottom(dp(12)));
-
-        RadioGroup typeGroup = choiceGroup(RadioGroup.VERTICAL);
-        mobileOption = choice("Mobile to Mobile", true);
-        bankOption = choice("Mobile to Bank", false);
-        billOption = choice("Bill Payment", false);
-        premiumBillOption = choice("Premium Bill Payment", false);
-        typeGroup.addView(mobileOption, tallOptionParams());
-        typeGroup.addView(bankOption, tallOptionParams());
-        typeGroup.addView(billOption, tallOptionParams());
-        typeGroup.addView(premiumBillOption, tallOptionParams());
-        typeGroup.setOnCheckedChangeListener((group, checkedId) -> {
-            styleOptions();
-            calculate();
-        });
-        form.addView(typeGroup, marginBottom(dp(14)));
+        providerSpinner = dropdown(PROVIDERS);
+        transactionTypeSpinner = dropdown(TRANSACTION_TYPES);
+        form.addView(dropdownField("Provider", providerSpinner));
+        form.addView(dropdownField("Transaction Type", transactionTypeSpinner));
 
         walletInput = moneyInput("Wallet balance");
         bankInput = moneyInput("Bank balance");
         amountInput = moneyInput("Transaction amount");
 
-        form.addView(field("Wallet Balance", walletInput));
-        form.addView(field("Bank Balance", bankInput));
+        balanceSection = new LinearLayout(this);
+        balanceSection.setOrientation(LinearLayout.VERTICAL);
+        balanceSection.addView(field("Wallet Balance", walletInput));
+        balanceSection.addView(field("Bank Balance", bankInput));
+
+        enforceBalancesCheck = new CheckBox(this);
+        enforceBalancesCheck.setText("Require wallet and bank balances for Mobile to Bank");
+        enforceBalancesCheck.setTextColor(deepNavy);
+        enforceBalancesCheck.setTextSize(13);
+        enforceBalancesCheck.setButtonTintList(android.content.res.ColorStateList.valueOf(teal));
+        enforceBalancesCheck.setPadding(0, 0, 0, dp(8));
+        enforceBalancesCheck.setOnCheckedChangeListener((buttonView, isChecked) -> calculate());
+        balanceSection.addView(enforceBalancesCheck);
+
+        form.addView(balanceSection);
         form.addView(field("Transaction Amount", amountInput));
 
         statusText = new TextView(this);
@@ -218,14 +218,20 @@ public class MainActivity extends Activity {
         page.addView(form);
         page.addView(resultCard());
 
-        TextWatcher watcher = new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) { calculate(); }
-            @Override public void afterTextChanged(Editable s) {}
-        };
+        TextWatcher watcher = formattedAmountWatcher();
         walletInput.addTextChangedListener(watcher);
         bankInput.addTextChangedListener(watcher);
         amountInput.addTextChangedListener(watcher);
+
+        AdapterView.OnItemSelectedListener dropdownListener = new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                updateDynamicSections();
+                calculate();
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        };
+        providerSpinner.setOnItemSelectedListener(dropdownListener);
+        transactionTypeSpinner.setOnItemSelectedListener(dropdownListener);
 
         root.addView(scroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -233,7 +239,7 @@ public class MainActivity extends Activity {
                 1
         ));
         setContentView(root);
-        styleOptions();
+        updateDynamicSections();
     }
 
     private View buildHeader() {
@@ -353,56 +359,91 @@ public class MainActivity extends Activity {
         return input;
     }
 
-    private RadioGroup choiceGroup(int orientation) {
-        RadioGroup group = new RadioGroup(this);
-        group.setOrientation(orientation);
-        group.setGravity(Gravity.CENTER);
-        group.setBackground(makeRoundRect(Color.rgb(247, 250, 250), border, dp(12)));
-        group.setPadding(dp(6), dp(6), dp(6), dp(6));
-        return group;
+    private Spinner dropdown(String[] values) {
+        Spinner spinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(
+                this,
+                android.R.layout.simple_spinner_item,
+                values
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setPadding(dp(10), 0, dp(10), 0);
+        spinner.setBackground(makeRoundRect(Color.rgb(247, 250, 250), border, dp(12)));
+        return spinner;
     }
 
-    private RadioButton choice(String text, boolean checked) {
-        RadioButton button = new RadioButton(this);
-        button.setText(text);
-        button.setId(View.generateViewId());
-        button.setTextSize(14);
-        button.setTypeface(Typeface.DEFAULT_BOLD);
-        button.setButtonDrawable(null);
-        button.setGravity(Gravity.CENTER);
-        button.setChecked(checked);
-        return button;
-    }
+    private View dropdownField(String label, Spinner spinner) {
+        LinearLayout wrapper = new LinearLayout(this);
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+        wrapper.setLayoutParams(marginBottom(dp(12)));
 
-    private void styleOptions() {
-        styleProviderOption(airtelOption, airtelOption.isChecked(), airtelRed, Color.WHITE);
-        styleProviderOption(mtnOption, mtnOption.isChecked(), mtnYellow, deepNavy);
-        styleTypeOption(mobileOption, mobileOption.isChecked());
-        styleTypeOption(bankOption, bankOption.isChecked());
-        styleTypeOption(billOption, billOption.isChecked());
-        styleTypeOption(premiumBillOption, premiumBillOption.isChecked());
-    }
+        TextView labelView = new TextView(this);
+        labelView.setText(label);
+        labelView.setTextColor(deepNavy);
+        labelView.setTextSize(13);
+        labelView.setTypeface(Typeface.DEFAULT_BOLD);
+        labelView.setPadding(0, 0, 0, dp(5));
+        wrapper.addView(labelView);
 
-    private void styleProviderOption(RadioButton button, boolean selected, int color, int selectedText) {
-        button.setTextColor(selected ? selectedText : deepNavy);
-        button.setBackground(makeRoundRect(
-                selected ? color : Color.TRANSPARENT,
-                selected ? color : Color.TRANSPARENT,
-                dp(10)
+        wrapper.addView(spinner, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(54)
         ));
+        return wrapper;
     }
 
-    private void styleTypeOption(RadioButton button, boolean selected) {
-        button.setTextColor(selected ? Color.WHITE : deepNavy);
-        button.setBackground(makeRoundRect(
-                selected ? teal : Color.TRANSPARENT,
-                selected ? teal : Color.TRANSPARENT,
-                dp(10)
-        ));
+    private TextWatcher formattedAmountWatcher() {
+        return new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                if (formattingAmounts) return;
+
+                formattingAmounts = true;
+                EditText activeInput = getCurrentFocus() instanceof EditText ? (EditText) getCurrentFocus() : null;
+                if (activeInput != null && activeInput.getText() == s) {
+                    String digits = digitsOnly(activeInput);
+                    String formatted = digits.isEmpty() ? "" : formatPlain(parseDigits(digits));
+                    if (!formatted.equals(activeInput.getText().toString())) {
+                        activeInput.setText(formatted);
+                        activeInput.setSelection(activeInput.getText().length());
+                    }
+                }
+                formattingAmounts = false;
+                calculate();
+            }
+        };
+    }
+
+    private void updateDynamicSections() {
+        boolean bankTransfer = isBankTransfer();
+        if (balanceSection != null) {
+            balanceSection.setVisibility(bankTransfer ? View.VISIBLE : View.GONE);
+        }
+        updateProviderAccent();
+    }
+
+    private void updateProviderAccent() {
+        int accent = selectedProvider().equals("MTN") ? mtnYellow : airtelRed;
+        int text = selectedProvider().equals("MTN") ? deepNavy : Color.WHITE;
+        if (providerSpinner != null) {
+            providerSpinner.setBackground(makeRoundRect(accent, accent, dp(12)));
+        }
+        if (statusText != null) {
+            statusText.setTextColor(text == Color.WHITE ? airtelRed : Color.rgb(136, 102, 0));
+        }
     }
 
     private void calculate() {
         if (statusText == null) return;
+
+        updateDynamicSections();
+
+        boolean bankTransfer = isBankTransfer();
+        boolean requireBalances = bankTransfer && enforceBalancesCheck != null && enforceBalancesCheck.isChecked();
+        boolean hasWallet = hasAmount(walletInput);
+        boolean hasBank = hasAmount(bankInput);
 
         long wallet = parseAmount(walletInput);
         long bank = parseAmount(bankInput);
@@ -412,6 +453,7 @@ public class MainActivity extends Activity {
         hasValidResult = false;
         carryButton.setEnabled(false);
         carryButton.setAlpha(0.55f);
+        carryButton.setVisibility(bankTransfer ? View.VISIBLE : View.GONE);
 
         if (amount <= 0) {
             showEmptyResult("Enter a transaction amount.");
@@ -426,36 +468,41 @@ public class MainActivity extends Activity {
         long fee = band.fee;
         long totalDebit = amount + fee;
         long newWallet = wallet - totalDebit;
-        long newBank = isBankTransfer() ? bank + amount : bank;
+        long newBank = bank + amount;
 
-        lastNewWallet = newWallet;
-        lastNewBank = newBank;
-        hasValidResult = true;
+        lastNewWallet = hasWallet ? newWallet : 0;
+        lastNewBank = hasBank ? newBank : 0;
 
         feeValue.setText(money(fee));
         totalDebitValue.setText(money(totalDebit));
-        walletValue.setText(money(newWallet));
-        bankValue.setText(isBankTransfer() ? money(newBank) : "Not affected");
+        walletValue.setText(bankTransfer ? (hasWallet ? money(newWallet) : "Optional") : "Not tracked");
+        bankValue.setText(bankTransfer ? (hasBank ? money(newBank) : "Optional") : "Not affected");
         bandValue.setText(formatPlain(band.min) + " - " + formatPlain(band.max));
         typeNoteValue.setText(selectedProvider() + " / " + selectedTransactionName());
 
-        if (newWallet < 0) {
+        if (requireBalances && (!hasWallet || !hasBank)) {
+            statusText.setText("Wallet and bank balances are required for Mobile to Bank.");
+            statusText.setTextColor(danger);
+        } else if (bankTransfer && hasWallet && newWallet < 0) {
             statusText.setText("Insufficient wallet balance after fee.");
             statusText.setTextColor(danger);
         } else {
-            statusText.setText("Fee applied from " + selectedProvider() + " " + selectedTransactionName() + " table.");
+            statusText.setText(bankTransfer && !requireBalances
+                    ? "Fee applied. Balances are optional for this Mobile to Bank calculation."
+                    : "Fee applied from " + selectedProvider() + " " + selectedTransactionName() + " table.");
             statusText.setTextColor(selectedProvider().equals("MTN") ? Color.rgb(136, 102, 0) : airtelRed);
+            hasValidResult = bankTransfer && hasWallet && hasBank;
         }
 
-        carryButton.setEnabled(true);
-        carryButton.setAlpha(1f);
+        carryButton.setEnabled(hasValidResult);
+        carryButton.setAlpha(hasValidResult ? 1f : 0.55f);
     }
 
     private void showEmptyResult(String message) {
         feeValue.setText("UGX 0");
         totalDebitValue.setText("UGX 0");
-        walletValue.setText("UGX 0");
-        bankValue.setText(isBankTransfer() ? "UGX 0" : "Not affected");
+        walletValue.setText(isBankTransfer() ? "Optional" : "Not tracked");
+        bankValue.setText(isBankTransfer() ? "Optional" : "Not affected");
         bandValue.setText("-");
         typeNoteValue.setText(selectedProvider() + " / " + selectedTransactionName());
         statusText.setText(message);
@@ -482,9 +529,10 @@ public class MainActivity extends Activity {
     }
 
     private int selectedTransactionType() {
-        if (bankOption != null && bankOption.isChecked()) return MOBILE_TO_BANK;
-        if (billOption != null && billOption.isChecked()) return BILL_PAYMENT;
-        if (premiumBillOption != null && premiumBillOption.isChecked()) return PREMIUM_BILL_PAYMENT;
+        int position = transactionTypeSpinner == null ? 0 : transactionTypeSpinner.getSelectedItemPosition();
+        if (position == 1) return MOBILE_TO_BANK;
+        if (position == 2) return BILL_PAYMENT;
+        if (position == 3) return PREMIUM_BILL_PAYMENT;
         return MOBILE_TO_MOBILE;
     }
 
@@ -501,7 +549,7 @@ public class MainActivity extends Activity {
     }
 
     private String selectedProvider() {
-        return mtnOption != null && mtnOption.isChecked() ? "MTN" : "Airtel";
+        return providerSpinner != null && providerSpinner.getSelectedItemPosition() == 1 ? "MTN" : "Airtel";
     }
 
     private void carryBalances() {
@@ -518,8 +566,20 @@ public class MainActivity extends Activity {
 
     private long parseAmount(EditText input) {
         if (input == null) return 0;
-        String digits = input.getText().toString().replaceAll("[^0-9]", "");
-        if (digits.isEmpty()) return 0;
+        return parseDigits(digitsOnly(input));
+    }
+
+    private boolean hasAmount(EditText input) {
+        return input != null && !digitsOnly(input).isEmpty();
+    }
+
+    private String digitsOnly(EditText input) {
+        if (input == null) return "";
+        return input.getText().toString().replaceAll("[^0-9]", "");
+    }
+
+    private long parseDigits(String digits) {
+        if (digits == null || digits.isEmpty()) return 0;
         try {
             return Long.parseLong(digits);
         } catch (NumberFormatException ignored) {
@@ -557,21 +617,6 @@ public class MainActivity extends Activity {
         view.setTextSize(18);
         view.setTypeface(Typeface.DEFAULT_BOLD);
         return view;
-    }
-
-    private LinearLayout.LayoutParams optionParams() {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(42), 1);
-        params.setMargins(dp(3), 0, dp(3), 0);
-        return params;
-    }
-
-    private LinearLayout.LayoutParams tallOptionParams() {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(42)
-        );
-        params.setMargins(0, dp(2), 0, dp(2));
-        return params;
     }
 
     private LinearLayout.LayoutParams marginBottom(int bottom) {
