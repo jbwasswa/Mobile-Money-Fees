@@ -172,8 +172,6 @@ public class MainActivity extends Activity {
     private Spinner providerSpinner;
     private Spinner transactionTypeSpinner;
     private Spinner balanceModeSpinner;
-    private TextView providerBadge;
-    private TextView typeBadge;
     private LinearLayout balanceSection;
     private View walletField;
     private View bankField;
@@ -211,6 +209,10 @@ public class MainActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(pageBg);
+
+        providerSpinner = dropdown(PROVIDERS);
+        transactionTypeSpinner = dropdown(TRANSACTION_TYPES);
+        balanceModeSpinner = dropdown(BALANCE_MODES);
         root.addView(buildHeader());
 
         ScrollView scroll = new ScrollView(this);
@@ -229,15 +231,10 @@ public class MainActivity extends Activity {
         title.setPadding(0, 0, 0, dp(4));
         form.addView(title);
 
-        TextView prompt = smallText("Choose a provider and enter the amount to preview the exact debit.");
+        TextView prompt = smallText("Enter an amount to preview the exact debit.");
         prompt.setPadding(0, 0, 0, dp(14));
         form.addView(prompt);
 
-        providerSpinner = dropdown(PROVIDERS);
-        transactionTypeSpinner = dropdown(TRANSACTION_TYPES);
-        balanceModeSpinner = dropdown(BALANCE_MODES);
-        form.addView(dropdownField("Provider", providerSpinner));
-        form.addView(dropdownField("Transaction Type", transactionTypeSpinner));
         form.addView(dropdownField("Balance Mode", balanceModeSpinner));
 
         walletInput = moneyInput("Wallet balance before");
@@ -308,23 +305,23 @@ public class MainActivity extends Activity {
         subtitle.setPadding(0, dp(4), 0, 0);
         header.addView(subtitle);
 
-        LinearLayout badges = new LinearLayout(this);
-        badges.setOrientation(LinearLayout.HORIZONTAL);
-        badges.setPadding(0, dp(14), 0, 0);
-        providerBadge = badge("Airtel");
-        typeBadge = badge("Mobile to Mobile");
+        LinearLayout headerControls = new LinearLayout(this);
+        headerControls.setOrientation(LinearLayout.HORIZONTAL);
+        headerControls.setPadding(0, dp(14), 0, 0);
         LinearLayout.LayoutParams providerParams = new LinearLayout.LayoutParams(
+                0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
-                dp(34)
+                0.44f
         );
         providerParams.setMargins(0, 0, dp(8), 0);
-        badges.addView(providerBadge, providerParams);
-        badges.addView(typeBadge, new LinearLayout.LayoutParams(
+
+        headerControls.addView(compactDropdownField("Provider", providerSpinner), providerParams);
+        headerControls.addView(compactDropdownField("Transaction", transactionTypeSpinner), new LinearLayout.LayoutParams(
                 0,
-                dp(34),
-                1
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                0.56f
         ));
-        header.addView(badges);
+        header.addView(headerControls);
         return header;
     }
 
@@ -472,23 +469,31 @@ public class MainActivity extends Activity {
         return spinner;
     }
 
-    private TextView badge(String text) {
-        TextView badge = new TextView(this);
-        badge.setText(text);
-        badge.setGravity(Gravity.CENTER);
-        badge.setSingleLine(true);
-        badge.setTextSize(12);
-        badge.setTypeface(Typeface.DEFAULT_BOLD);
-        badge.setPadding(dp(12), 0, dp(12), 0);
-        return badge;
-    }
-
     private TextView smallText(String text) {
         TextView view = new TextView(this);
         view.setText(text);
         view.setTextColor(muted);
         view.setTextSize(13);
         return view;
+    }
+
+    private View compactDropdownField(String label, Spinner spinner) {
+        LinearLayout wrapper = new LinearLayout(this);
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+
+        TextView labelView = new TextView(this);
+        labelView.setText(label);
+        labelView.setTextColor(Color.rgb(184, 219, 215));
+        labelView.setTextSize(11);
+        labelView.setTypeface(Typeface.DEFAULT_BOLD);
+        labelView.setPadding(0, 0, 0, dp(4));
+        wrapper.addView(labelView);
+
+        wrapper.addView(spinner, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(46)
+        ));
+        return wrapper;
     }
 
     private View dropdownField(String label, Spinner spinner) {
@@ -564,16 +569,11 @@ public class MainActivity extends Activity {
         int text = selectedProvider().equals("MTN") ? deepNavy : Color.WHITE;
         if (providerSpinner != null) {
             providerSpinner.setBackground(makeRoundRect(accent, accent, dp(10)));
+            tintSelectedSpinnerText(providerSpinner, text);
         }
-        if (providerBadge != null) {
-            providerBadge.setText(selectedProvider());
-            providerBadge.setTextColor(text);
-            providerBadge.setBackground(makeRoundRect(accent, accent, dp(17)));
-        }
-        if (typeBadge != null) {
-            typeBadge.setText(selectedTransactionName());
-            typeBadge.setTextColor(Color.rgb(197, 237, 231));
-            typeBadge.setBackground(makeRoundRect(Color.rgb(22, 65, 72), Color.rgb(48, 110, 119), dp(17)));
+        if (transactionTypeSpinner != null) {
+            transactionTypeSpinner.setBackground(makeRoundRect(Color.rgb(22, 65, 72), Color.rgb(48, 110, 119), dp(10)));
+            tintSelectedSpinnerText(transactionTypeSpinner, Color.WHITE);
         }
         if (statusText != null) {
             statusText.setTextColor(text == Color.WHITE ? airtelRed : Color.rgb(136, 102, 0));
@@ -581,6 +581,14 @@ public class MainActivity extends Activity {
         if (carryButton != null) {
             int buttonColor = selectedProvider().equals("MTN") ? deepNavy : airtelRed;
             carryButton.setBackground(makeRoundRect(buttonColor, buttonColor, dp(10)));
+        }
+    }
+
+    private void tintSelectedSpinnerText(Spinner spinner, int color) {
+        View selected = spinner.getSelectedView();
+        if (selected instanceof TextView) {
+            ((TextView) selected).setTextColor(color);
+            ((TextView) selected).setTypeface(Typeface.DEFAULT_BOLD);
         }
     }
 
