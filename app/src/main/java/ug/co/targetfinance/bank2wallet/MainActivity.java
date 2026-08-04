@@ -9,6 +9,8 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
+import android.text.method.DigitsKeyListener;
+import android.text.method.HideReturnsTransformationMethod;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -236,7 +238,7 @@ public class MainActivity extends Activity {
         prompt.setPadding(0, 0, 0, dp(14));
         form.addView(prompt);
 
-        form.addView(dropdownField("Balance Mode", balanceModeSpinner));
+        form.addView(dropdownField("Tracking Option", balanceModeSpinner));
 
         walletInput = moneyInput("Wallet balance before");
         bankInput = moneyInput("Bank balance before");
@@ -450,7 +452,9 @@ public class MainActivity extends Activity {
         EditText input = new EditText(this);
         input.setHint(hint);
         input.setSingleLine(true);
-        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        input.setKeyListener(DigitsKeyListener.getInstance("0123456789"));
+        input.setRawInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        input.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
         input.setTextSize(16);
         input.setTextColor(deepNavy);
         input.setHintTextColor(muted);
