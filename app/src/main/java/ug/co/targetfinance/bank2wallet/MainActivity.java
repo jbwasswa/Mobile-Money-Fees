@@ -259,6 +259,7 @@ public class MainActivity extends Activity {
 
         page.addView(form);
         page.addView(resultCard());
+        page.addView(helpCard());
 
         TextWatcher watcher = formattedAmountWatcher();
         walletInput.addTextChangedListener(watcher);
@@ -356,6 +357,52 @@ public class MainActivity extends Activity {
         bankResultRow = resultRowContainer(results, "Bank Balance After");
         bankValue = (TextView) bankResultRow.getTag();
         return results;
+    }
+
+    private View helpCard() {
+        LinearLayout help = card();
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, dp(14), 0, 0);
+        help.setLayoutParams(params);
+
+        TextView title = title("Help");
+        title.setPadding(0, 0, 0, dp(4));
+        help.addView(title);
+
+        TextView intro = smallText("Use this guide when choosing a tariff type.");
+        intro.setPadding(0, 0, 0, dp(10));
+        help.addView(intro);
+
+        help.addView(helpLine("Mobile to Mobile", "Sending money to another mobile money wallet."));
+        help.addView(helpLine("Mobile to Bank", "Sending wallet money to a bank account."));
+        help.addView(helpLine("Cash Withdrawal", "Shows fee, withdraw tax, and Total Deductions."));
+        help.addView(helpLine("Bill Payment", "Use the lower bill-payment tariff column for the selected network."));
+        help.addView(helpLine("Premium Bill Payment", "Use the higher bill-payment tariff column for the selected network."));
+        help.addView(helpLine("Note", "MTN and Airtel group billers differently, so choose based on the selected network's tariff list."));
+
+        return help;
+    }
+
+    private View helpLine(String label, String detail) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(0, dp(6), 0, dp(6));
+
+        TextView labelView = new TextView(this);
+        labelView.setText(label);
+        labelView.setTextColor(deepNavy);
+        labelView.setTextSize(13);
+        labelView.setTypeface(Typeface.DEFAULT_BOLD);
+        row.addView(labelView);
+
+        TextView detailView = smallText(detail);
+        detailView.setPadding(0, dp(2), 0, 0);
+        row.addView(detailView);
+
+        return row;
     }
 
     private TextView heroResult(LinearLayout parent) {
