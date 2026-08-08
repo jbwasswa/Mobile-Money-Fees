@@ -20,6 +20,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.Spinner;
@@ -505,7 +506,30 @@ public class MainActivity extends Activity {
         labelView.setPadding(0, 0, 0, dp(5));
         wrapper.addView(labelView);
 
-        wrapper.addView(input, new LinearLayout.LayoutParams(
+        FrameLayout inputFrame = new FrameLayout(this);
+        inputFrame.setBackground(makeRoundRect(softPanel, border, dp(10)));
+
+        input.setBackgroundColor(Color.TRANSPARENT);
+        input.setPadding(dp(14), 0, dp(44), 0);
+        inputFrame.addView(input, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(54)
+        ));
+
+        TextView clearButton = clearInputButton(input);
+        FrameLayout.LayoutParams clearParams = new FrameLayout.LayoutParams(dp(42), dp(54));
+        clearParams.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+        inputFrame.addView(clearButton, clearParams);
+
+        input.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                clearButton.setVisibility(s.length() > 0 ? View.VISIBLE : View.GONE);
+            }
+        });
+
+        wrapper.addView(inputFrame, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 dp(54)
         ));
@@ -522,10 +546,27 @@ public class MainActivity extends Activity {
         input.setTextSize(16);
         input.setTextColor(deepNavy);
         input.setHintTextColor(muted);
-        input.setPadding(dp(14), 0, dp(14), 0);
-        input.setBackground(makeRoundRect(softPanel, border, dp(10)));
+        input.setPadding(dp(14), 0, dp(44), 0);
+        input.setBackgroundColor(Color.TRANSPARENT);
         input.setSelectAllOnFocus(true);
         return input;
+    }
+
+    private TextView clearInputButton(EditText input) {
+        TextView clearButton = new TextView(this);
+        clearButton.setText("X");
+        clearButton.setTextColor(muted);
+        clearButton.setTextSize(14);
+        clearButton.setGravity(Gravity.CENTER);
+        clearButton.setTypeface(Typeface.DEFAULT_BOLD);
+        clearButton.setContentDescription("Clear field");
+        clearButton.setVisibility(input.getText().length() > 0 ? View.VISIBLE : View.GONE);
+        clearButton.setOnClickListener(v -> {
+            input.setText("");
+            input.requestFocus();
+            calculate();
+        });
+        return clearButton;
     }
 
     private Spinner dropdown(String[] values) {
@@ -599,17 +640,43 @@ public class MainActivity extends Activity {
                 formattingAmounts = true;
                 EditText activeInput = getCurrentFocus() instanceof EditText ? (EditText) getCurrentFocus() : null;
                 if (activeInput != null && activeInput.getText() == s) {
+                    int digitCursor = countDigitsBefore(activeInput.getText().toString(), activeInput.getSelectionStart());
                     String digits = digitsOnly(activeInput);
                     String formatted = digits.isEmpty() ? "" : formatPlain(parseDigits(digits));
                     if (!formatted.equals(activeInput.getText().toString())) {
                         activeInput.setText(formatted);
-                        activeInput.setSelection(activeInput.getText().length());
+                        activeInput.setSelection(cursorForDigitPosition(formatted, digitCursor));
                     }
                 }
                 formattingAmounts = false;
                 calculate();
             }
         };
+    }
+
+    private int countDigitsBefore(String value, int cursor) {
+        int safeCursor = Math.max(0, Math.min(cursor, value.length()));
+        int count = 0;
+        for (int i = 0; i < safeCursor; i++) {
+            if (Character.isDigit(value.charAt(i))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int cursorForDigitPosition(String value, int digitPosition) {
+        if (digitPosition <= 0) return 0;
+        int seen = 0;
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isDigit(value.charAt(i))) {
+                seen++;
+                if (seen == digitPosition) {
+                    return i + 1;
+                }
+            }
+        }
+        return value.length();
     }
 
     private void updateDynamicSections() {
