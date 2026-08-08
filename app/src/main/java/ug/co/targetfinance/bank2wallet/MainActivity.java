@@ -372,10 +372,14 @@ public class MainActivity extends Activity {
         title.setPadding(0, 0, 0, dp(4));
         help.addView(title);
 
-        TextView intro = smallText("Use this guide when choosing a tariff type.");
+        TextView intro = smallText("Use this guide when choosing the network, tracking option, and tariff type.");
         intro.setPadding(0, 0, 0, dp(10));
         help.addView(intro);
 
+        help.addView(helpLine("Network Provider", "Choose Airtel or MTN so the app uses that network's tariff table."));
+        help.addView(helpLine("Quick fees", "Shows the transaction fee and wallet debit without tracking balances."));
+        help.addView(helpLine("Wallet only", "Enter wallet balance before; the app shows the wallet balance after the transaction."));
+        help.addView(helpLine("Wallet + bank", "For Mobile to Bank only; shows both wallet after and bank balance after."));
         help.addView(helpLine("Mobile to Mobile", "Sending money to another mobile money wallet."));
         help.addView(helpLine("Mobile to Bank", "Sending wallet money to a bank account."));
         help.addView(helpLine("Cash Withdrawal", "Shows fee, withdraw tax, and Total Deductions."));
