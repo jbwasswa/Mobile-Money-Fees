@@ -23,7 +23,8 @@ balance is entered.
 
 For Cash Withdrawal, the app adds the withdrawal fee and 0.5% withdrawal tax.
 Wallet before/after tracking is available through Tracking Option, just like the
-other transaction types.
+other transaction types. Cash Withdrawal also shows Total Deductions, which is
+the fee plus the withdrawal tax.
 
 Provider colors:
 
