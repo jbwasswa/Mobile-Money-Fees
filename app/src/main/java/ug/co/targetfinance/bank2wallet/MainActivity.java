@@ -380,32 +380,44 @@ public class MainActivity extends Activity {
     }
 
     private void showHelpDialog() {
+        ScrollView scroller = new ScrollView(this);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(22), dp(12), dp(22), dp(6));
+        scroller.addView(content);
+
+        addHelpTopic(content, "Network Provider", "Choose Airtel or MTN so the app uses that network's tariff table.");
+        addHelpTopic(content, "Quick fees", "Shows the transaction fee and wallet debit without tracking balances.");
+        addHelpTopic(content, "Wallet only", "Enter wallet balance before; the app shows the wallet balance after the transaction.");
+        addHelpTopic(content, "Wallet + bank", "For Mobile to Bank only; shows both wallet after and bank balance after.");
+        addHelpTopic(content, "Mobile to Mobile", "Sending money to another mobile money wallet.");
+        addHelpTopic(content, "Mobile to Bank", "Sending wallet money to a bank account.");
+        addHelpTopic(content, "Cash Withdrawal", "Shows fee, withdraw tax, and Total Deductions.");
+        addHelpTopic(content, "Bill Payment", "Use the lower bill-payment tariff column for the selected network.");
+        addHelpTopic(content, "Premium Bill Payment", "Use the higher bill-payment tariff column for the selected network.");
+        addHelpTopic(content, "Note", "MTN and Airtel group billers differently, so choose based on the selected network's tariff list.");
+
         new AlertDialog.Builder(this)
                 .setTitle("Help")
-                .setMessage(
-                        "Network Provider\n" +
-                                "Choose Airtel or MTN so the app uses that network's tariff table.\n\n" +
-                                "Quick fees\n" +
-                                "Shows the transaction fee and wallet debit without tracking balances.\n\n" +
-                                "Wallet only\n" +
-                                "Enter wallet balance before; the app shows the wallet balance after the transaction.\n\n" +
-                                "Wallet + bank\n" +
-                                "For Mobile to Bank only; shows both wallet after and bank balance after.\n\n" +
-                                "Mobile to Mobile\n" +
-                                "Sending money to another mobile money wallet.\n\n" +
-                                "Mobile to Bank\n" +
-                                "Sending wallet money to a bank account.\n\n" +
-                                "Cash Withdrawal\n" +
-                                "Shows fee, withdraw tax, and Total Deductions.\n\n" +
-                                "Bill Payment\n" +
-                                "Use the lower bill-payment tariff column for the selected network.\n\n" +
-                                "Premium Bill Payment\n" +
-                                "Use the higher bill-payment tariff column for the selected network.\n\n" +
-                                "Note\n" +
-                                "MTN and Airtel group billers differently, so choose based on the selected network's tariff list."
-                )
+                .setView(scroller)
                 .setPositiveButton("Got it", null)
                 .show();
+    }
+
+    private void addHelpTopic(LinearLayout parent, String heading, String detail) {
+        TextView headingView = new TextView(this);
+        headingView.setText(heading);
+        headingView.setTextColor(deepNavy);
+        headingView.setTextSize(15);
+        headingView.setTypeface(Typeface.DEFAULT_BOLD);
+        headingView.setPadding(0, dp(10), 0, dp(2));
+        parent.addView(headingView);
+
+        TextView detailView = smallText(detail);
+        detailView.setTextSize(13);
+        detailView.setLineSpacing(dp(2), 1.0f);
+        detailView.setPadding(0, 0, 0, dp(4));
+        parent.addView(detailView);
     }
 
     private TextView heroResult(LinearLayout parent) {
