@@ -1,6 +1,7 @@
 package ug.co.targetfinance.bank2wallet;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -259,7 +260,6 @@ public class MainActivity extends Activity {
 
         page.addView(form);
         page.addView(resultCard());
-        page.addView(helpCard());
 
         TextWatcher watcher = formattedAmountWatcher();
         walletInput.addTextChangedListener(watcher);
@@ -296,12 +296,32 @@ public class MainActivity extends Activity {
         header.setPadding(dp(18), dp(22), dp(18), dp(18));
         header.setBackgroundColor(navy);
 
+        LinearLayout titleRow = new LinearLayout(this);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+
         TextView appName = new TextView(this);
         appName.setText("Tariff Desk UG");
         appName.setTextColor(Color.WHITE);
         appName.setTextSize(25);
         appName.setTypeface(Typeface.DEFAULT_BOLD);
-        header.addView(appName);
+        titleRow.addView(appName, new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1
+        ));
+
+        TextView helpButton = new TextView(this);
+        helpButton.setText("?");
+        helpButton.setTextColor(Color.WHITE);
+        helpButton.setTextSize(20);
+        helpButton.setGravity(Gravity.CENTER);
+        helpButton.setTypeface(Typeface.DEFAULT_BOLD);
+        helpButton.setContentDescription("Help");
+        helpButton.setBackground(makeRoundRect(Color.TRANSPARENT, Color.rgb(184, 219, 215), dp(18)));
+        helpButton.setOnClickListener(v -> showHelpDialog());
+        titleRow.addView(helpButton, new LinearLayout.LayoutParams(dp(36), dp(36)));
+        header.addView(titleRow);
 
         TextView subtitle = new TextView(this);
         subtitle.setText("Fast fee checks for Airtel and MTN money moves");
@@ -359,54 +379,33 @@ public class MainActivity extends Activity {
         return results;
     }
 
-    private View helpCard() {
-        LinearLayout help = card();
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-        );
-        params.setMargins(0, dp(14), 0, 0);
-        help.setLayoutParams(params);
-
-        TextView title = title("Help");
-        title.setPadding(0, 0, 0, dp(4));
-        help.addView(title);
-
-        TextView intro = smallText("Use this guide when choosing the network, tracking option, and tariff type.");
-        intro.setPadding(0, 0, 0, dp(10));
-        help.addView(intro);
-
-        help.addView(helpLine("Network Provider", "Choose Airtel or MTN so the app uses that network's tariff table."));
-        help.addView(helpLine("Quick fees", "Shows the transaction fee and wallet debit without tracking balances."));
-        help.addView(helpLine("Wallet only", "Enter wallet balance before; the app shows the wallet balance after the transaction."));
-        help.addView(helpLine("Wallet + bank", "For Mobile to Bank only; shows both wallet after and bank balance after."));
-        help.addView(helpLine("Mobile to Mobile", "Sending money to another mobile money wallet."));
-        help.addView(helpLine("Mobile to Bank", "Sending wallet money to a bank account."));
-        help.addView(helpLine("Cash Withdrawal", "Shows fee, withdraw tax, and Total Deductions."));
-        help.addView(helpLine("Bill Payment", "Use the lower bill-payment tariff column for the selected network."));
-        help.addView(helpLine("Premium Bill Payment", "Use the higher bill-payment tariff column for the selected network."));
-        help.addView(helpLine("Note", "MTN and Airtel group billers differently, so choose based on the selected network's tariff list."));
-
-        return help;
-    }
-
-    private View helpLine(String label, String detail) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(0, dp(6), 0, dp(6));
-
-        TextView labelView = new TextView(this);
-        labelView.setText(label);
-        labelView.setTextColor(deepNavy);
-        labelView.setTextSize(13);
-        labelView.setTypeface(Typeface.DEFAULT_BOLD);
-        row.addView(labelView);
-
-        TextView detailView = smallText(detail);
-        detailView.setPadding(0, dp(2), 0, 0);
-        row.addView(detailView);
-
-        return row;
+    private void showHelpDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Help")
+                .setMessage(
+                        "Network Provider\n" +
+                                "Choose Airtel or MTN so the app uses that network's tariff table.\n\n" +
+                                "Quick fees\n" +
+                                "Shows the transaction fee and wallet debit without tracking balances.\n\n" +
+                                "Wallet only\n" +
+                                "Enter wallet balance before; the app shows the wallet balance after the transaction.\n\n" +
+                                "Wallet + bank\n" +
+                                "For Mobile to Bank only; shows both wallet after and bank balance after.\n\n" +
+                                "Mobile to Mobile\n" +
+                                "Sending money to another mobile money wallet.\n\n" +
+                                "Mobile to Bank\n" +
+                                "Sending wallet money to a bank account.\n\n" +
+                                "Cash Withdrawal\n" +
+                                "Shows fee, withdraw tax, and Total Deductions.\n\n" +
+                                "Bill Payment\n" +
+                                "Use the lower bill-payment tariff column for the selected network.\n\n" +
+                                "Premium Bill Payment\n" +
+                                "Use the higher bill-payment tariff column for the selected network.\n\n" +
+                                "Note\n" +
+                                "MTN and Airtel group billers differently, so choose based on the selected network's tariff list."
+                )
+                .setPositiveButton("Got it", null)
+                .show();
     }
 
     private TextView heroResult(LinearLayout parent) {
