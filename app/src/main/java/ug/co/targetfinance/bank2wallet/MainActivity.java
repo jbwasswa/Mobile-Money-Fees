@@ -46,7 +46,7 @@ public class MainActivity extends Activity {
     private static final int BILL_PAYMENT = 3;
     private static final int PREMIUM_BILL_PAYMENT = 4;
     private static final int CASH_WITHDRAWAL = 5;
-    private static final String[] PROVIDERS = {"Airtel", "MTN"};
+    private static final String[] PROVIDERS = {"Airtel Money", "MTN MoMo"};
     private static final String[] TRANSACTION_TYPES = {
             "Mobile to Mobile",
             "Mobile to Bank",
@@ -324,7 +324,7 @@ public class MainActivity extends Activity {
         header.addView(titleRow);
 
         TextView subtitle = new TextView(this);
-        subtitle.setText("Fast fee checks for Airtel and MTN money moves");
+        subtitle.setText("Fast fee checks for Airtel Money and MTN MoMo");
         subtitle.setTextColor(Color.rgb(184, 219, 215));
         subtitle.setTextSize(13);
         subtitle.setPadding(0, dp(4), 0, 0);
@@ -340,7 +340,7 @@ public class MainActivity extends Activity {
         );
         providerParams.setMargins(0, 0, dp(8), 0);
 
-        headerControls.addView(compactDropdownField("Network Provider", providerSpinner), providerParams);
+        headerControls.addView(compactDropdownField("Service Provider", providerSpinner), providerParams);
         headerControls.addView(compactDropdownField("Transaction Type", transactionTypeSpinner), new LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -386,16 +386,24 @@ public class MainActivity extends Activity {
         content.setPadding(dp(22), dp(12), dp(22), dp(6));
         scroller.addView(content);
 
-        addHelpTopic(content, "Network Provider", "Choose Airtel or MTN so the app uses that network's tariff table.");
-        addHelpTopic(content, "Quick fees", "Shows the transaction fee and wallet debit without tracking balances.");
-        addHelpTopic(content, "Wallet only", "Enter wallet balance before; the app shows the wallet balance after the transaction.");
-        addHelpTopic(content, "Wallet + bank", "For Mobile to Bank only; shows both wallet after and bank balance after.");
-        addHelpTopic(content, "Mobile to Mobile", "Sending money to another mobile money wallet.");
-        addHelpTopic(content, "Mobile to Bank", "Sending wallet money to a bank account.");
-        addHelpTopic(content, "Cash Withdrawal", "Shows fee, withdraw tax, and Total Deductions.");
-        addHelpTopic(content, "Bill Payment", "Use the lower bill-payment tariff column for the selected network.");
-        addHelpTopic(content, "Premium Bill Payment", "Use the higher bill-payment tariff column for the selected network.");
-        addHelpTopic(content, "Note", "MTN and Airtel group billers differently, so choose based on the selected network's tariff list.");
+        addHelpSection(content, "Service Provider");
+        addHelpOption(content, "Airtel Money", "Uses Airtel Money tariff bands for the selected transaction type.");
+        addHelpOption(content, "MTN MoMo", "Uses MTN MoMo tariff bands for the selected transaction type.");
+
+        addHelpSection(content, "Transaction Type");
+        addHelpOption(content, "Mobile to Mobile", "Sending money to another mobile money wallet.");
+        addHelpOption(content, "Mobile to Bank", "Sending wallet money to a bank account.");
+        addHelpOption(content, "Cash Withdrawal", "Shows fee, withdraw tax, and Total Deductions.");
+        addHelpOption(content, "Bill Payment", "Use the lower bill-payment tariff column for the selected service provider.");
+        addHelpOption(content, "Premium Bill Payment", "Use the higher bill-payment tariff column for the selected service provider.");
+
+        addHelpSection(content, "Tracking Option");
+        addHelpOption(content, "Quick fees", "Shows the transaction fee and wallet debit without tracking balances.");
+        addHelpOption(content, "Wallet only", "Enter wallet balance before; the app shows the wallet balance after the transaction.");
+        addHelpOption(content, "Wallet + bank", "For Mobile to Bank only; shows both wallet after and bank balance after.");
+
+        addHelpSection(content, "Note");
+        addHelpOption(content, "Billers", "MTN MoMo and Airtel Money group billers differently, so choose based on the selected service provider's tariff list.");
 
         new AlertDialog.Builder(this)
                 .setTitle("Help")
@@ -404,14 +412,24 @@ public class MainActivity extends Activity {
                 .show();
     }
 
-    private void addHelpTopic(LinearLayout parent, String heading, String detail) {
+    private void addHelpSection(LinearLayout parent, String heading) {
         TextView headingView = new TextView(this);
         headingView.setText(heading);
         headingView.setTextColor(deepNavy);
-        headingView.setTextSize(15);
+        headingView.setTextSize(16);
         headingView.setTypeface(Typeface.DEFAULT_BOLD);
-        headingView.setPadding(0, dp(10), 0, dp(2));
+        headingView.setPadding(0, dp(14), 0, dp(5));
         parent.addView(headingView);
+    }
+
+    private void addHelpOption(LinearLayout parent, String option, String detail) {
+        TextView optionView = new TextView(this);
+        optionView.setText(option);
+        optionView.setTextColor(deepNavy);
+        optionView.setTextSize(14);
+        optionView.setTypeface(Typeface.DEFAULT_BOLD);
+        optionView.setPadding(0, dp(6), 0, dp(1));
+        parent.addView(optionView);
 
         TextView detailView = smallText(detail);
         detailView.setTextSize(13);
@@ -730,7 +748,7 @@ public class MainActivity extends Activity {
 
     private String balanceStatus(boolean hasWallet, boolean hasBank, boolean bankTransfer, boolean tracksWallet, boolean tracksBank) {
         if (!tracksWallet && !tracksBank) {
-            return "Fee calculated for " + selectedProvider() + " " + selectedTransactionName() + ".";
+            return "Fee calculated for " + selectedProviderDisplayName() + " " + selectedTransactionName() + ".";
         }
         if (tracksWallet && !hasWallet) {
             return "Fee applied. Enter wallet balance before to see the after balance.";
@@ -813,6 +831,10 @@ public class MainActivity extends Activity {
 
     private String selectedProvider() {
         return providerSpinner != null && providerSpinner.getSelectedItemPosition() == 1 ? "MTN" : "Airtel";
+    }
+
+    private String selectedProviderDisplayName() {
+        return providerSpinner != null && providerSpinner.getSelectedItemPosition() == 1 ? "MTN MoMo" : "Airtel Money";
     }
 
     private long parseAmount(EditText input) {
