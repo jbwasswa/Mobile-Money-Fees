@@ -27,7 +27,9 @@ import android.widget.Spinner;
 import android.widget.TextView;
 
 import java.text.NumberFormat;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 public class MainActivity extends Activity {
     private final int navy = Color.rgb(16, 43, 51);
@@ -191,6 +193,8 @@ public class MainActivity extends Activity {
     private TextView bankValue;
     private LinearLayout bankResultRow;
     private TextView totalDebitValue;
+    private TextView splitSaveButton;
+    private SplitOption currentSplitOption;
 
     private boolean formattingAmounts = false;
     private boolean updatingBalanceModes = false;
@@ -379,6 +383,8 @@ public class MainActivity extends Activity {
         walletValue = resultRow(results, "Wallet Balance After");
         bankResultRow = resultRowContainer(results, "Bank Balance After");
         bankValue = (TextView) bankResultRow.getTag();
+        splitSaveButton = splitSaveButton();
+        results.addView(splitSaveButton);
         return results;
     }
 
@@ -493,6 +499,22 @@ public class MainActivity extends Activity {
         row.setTag(value);
         parent.addView(row);
         return row;
+    }
+
+    private TextView splitSaveButton() {
+        TextView button = new TextView(this);
+        button.setTextColor(deepNavy);
+        button.setTextSize(15);
+        button.setGravity(Gravity.CENTER);
+        button.setTypeface(Typeface.DEFAULT_BOLD);
+        button.setPadding(dp(12), dp(11), dp(12), dp(11));
+        button.setBackground(makeRoundRect(Color.rgb(229, 252, 239), Color.rgb(103, 201, 143), dp(9)));
+        button.setVisibility(View.GONE);
+        LinearLayout.LayoutParams params = marginBottom(0);
+        params.setMargins(0, dp(10), 0, 0);
+        button.setLayoutParams(params);
+        button.setOnClickListener(v -> showSplitOptionDialog());
+        return button;
     }
 
     private View field(String label, EditText input) {
@@ -814,6 +836,7 @@ public class MainActivity extends Activity {
         totalDebitValue.setText(money(totalDebit));
         walletValue.setText(tracksWallet ? (hasWallet ? money(newWallet) : "Enter wallet before") : "Not tracked");
         bankValue.setText(tracksBank ? (hasBank ? money(newBank) : "Enter bank before") : "Not tracked");
+        updateSplitSuggestion(amount, deductions);
 
         if (tracksWallet && hasWallet && newWallet < 0) {
             statusText.setText("Insufficient wallet balance after fee.");
@@ -831,8 +854,94 @@ public class MainActivity extends Activity {
         totalDebitValue.setText("UGX 0");
         walletValue.setText(tracksWalletBalance() ? "Enter wallet before" : "Not tracked");
         bankValue.setText(tracksBankBalance() ? "Enter bank before" : "Not tracked");
+        hideSplitSuggestion();
         statusText.setText(message);
         statusText.setTextColor(muted);
+    }
+
+    private void updateSplitSuggestion(long amount, long singleCost) {
+        currentSplitOption = findBestSplit(amount, singleCost);
+        if (currentSplitOption == null || splitSaveButton == null) {
+            hideSplitSuggestion();
+            return;
+        }
+        splitSaveButton.setText("Split to Save " + money(currentSplitOption.saving));
+        splitSaveButton.setVisibility(View.VISIBLE);
+    }
+
+    private void hideSplitSuggestion() {
+        currentSplitOption = null;
+        if (splitSaveButton != null) {
+            splitSaveButton.setVisibility(View.GONE);
+        }
+    }
+
+    private SplitOption findBestSplit(long amount, long singleCost) {
+        if (amount <= 0 || singleCost <= 0) return null;
+
+        FeeBand[] bands = selectedBands();
+        Set<Long> candidates = new HashSet<>();
+        candidates.add(amount / 2);
+        candidates.add(amount - (amount / 2));
+
+        for (FeeBand band : bands) {
+            addSplitCandidate(candidates, band.min, amount);
+            addSplitCandidate(candidates, band.max, amount);
+            addSplitCandidate(candidates, amount - band.min, amount);
+            addSplitCandidate(candidates, amount - band.max, amount);
+        }
+
+        SplitOption best = null;
+        for (Long firstPart : candidates) {
+            if (firstPart == null || firstPart <= 0 || firstPart >= amount) continue;
+            long secondPart = amount - firstPart;
+            long firstCost = transactionCost(firstPart, bands);
+            long secondCost = transactionCost(secondPart, bands);
+            if (firstCost < 0 || secondCost < 0) continue;
+
+            long splitCost = firstCost + secondCost;
+            long saving = singleCost - splitCost;
+            if (saving <= 0) continue;
+
+            long displayFirst = Math.max(firstPart, secondPart);
+            long displaySecond = Math.min(firstPart, secondPart);
+            if (best == null || saving > best.saving || (saving == best.saving && displayFirst > best.firstPart)) {
+                best = new SplitOption(displayFirst, displaySecond, singleCost, splitCost, saving);
+            }
+        }
+        return best;
+    }
+
+    private void addSplitCandidate(Set<Long> candidates, long candidate, long amount) {
+        if (candidate > 0 && candidate < amount) {
+            candidates.add(candidate);
+        }
+    }
+
+    private long transactionCost(long amount, FeeBand[] bands) {
+        FeeBand band = findBand(amount, bands);
+        if (band == null) return -1;
+        long tax = isCashWithdrawal() ? withdrawalTax(amount) : 0;
+        return band.fee + tax;
+    }
+
+    private void showSplitOptionDialog() {
+        if (currentSplitOption == null) return;
+
+        String message =
+                "Current option\n" +
+                        "Send " + money(parseAmount(amountInput)) + " once\n" +
+                        "Total fee/deductions: " + money(currentSplitOption.singleCost) + "\n\n" +
+                        "Better split option\n" +
+                        "Send " + money(currentSplitOption.firstPart) + " + " + money(currentSplitOption.secondPart) + "\n" +
+                        "Total fee/deductions: " + money(currentSplitOption.splitCost) + "\n\n" +
+                        "You may save " + money(currentSplitOption.saving) + ".";
+
+        new AlertDialog.Builder(this)
+                .setTitle("Split to Save")
+                .setMessage(message)
+                .setPositiveButton("Got it", null)
+                .show();
     }
 
     private String balanceStatus(boolean hasWallet, boolean hasBank, boolean bankTransfer, boolean tracksWallet, boolean tracksBank) {
@@ -852,7 +961,10 @@ public class MainActivity extends Activity {
     }
 
     private FeeBand findBand(long amount) {
-        FeeBand[] bands = selectedBands();
+        return findBand(amount, selectedBands());
+    }
+
+    private FeeBand findBand(long amount, FeeBand[] bands) {
         for (FeeBand band : bands) {
             if (amount >= band.min && amount <= band.max) {
                 return band;
@@ -1038,6 +1150,22 @@ public class MainActivity extends Activity {
             this.fee = fee;
             this.taxMin = taxMin;
             this.taxMax = taxMax;
+        }
+    }
+
+    private static class SplitOption {
+        final long firstPart;
+        final long secondPart;
+        final long singleCost;
+        final long splitCost;
+        final long saving;
+
+        SplitOption(long firstPart, long secondPart, long singleCost, long splitCost, long saving) {
+            this.firstPart = firstPart;
+            this.secondPart = secondPart;
+            this.singleCost = singleCost;
+            this.splitCost = splitCost;
+            this.saving = saving;
         }
     }
 }
