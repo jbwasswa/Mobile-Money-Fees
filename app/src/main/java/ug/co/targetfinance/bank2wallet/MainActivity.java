@@ -194,6 +194,8 @@ public class MainActivity extends Activity {
 
     private boolean formattingAmounts = false;
     private boolean updatingBalanceModes = false;
+    private boolean pendingCommaBackspace = false;
+    private int pendingCommaBackspaceDigitIndex = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -632,7 +634,20 @@ public class MainActivity extends Activity {
 
     private TextWatcher formattedAmountWatcher() {
         return new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                pendingCommaBackspace = false;
+                pendingCommaBackspaceDigitIndex = -1;
+                if (formattingAmounts || count <= after || count != 1 || start < 0 || start >= s.length()) {
+                    return;
+                }
+                if (s.charAt(start) == ',') {
+                    int digitsBeforeComma = countDigitsBefore(s.toString(), start);
+                    if (digitsBeforeComma > 0) {
+                        pendingCommaBackspace = true;
+                        pendingCommaBackspaceDigitIndex = digitsBeforeComma - 1;
+                    }
+                }
+            }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
             @Override public void afterTextChanged(Editable s) {
                 if (formattingAmounts) return;
@@ -642,12 +657,19 @@ public class MainActivity extends Activity {
                 if (activeInput != null && activeInput.getText() == s) {
                     int digitCursor = countDigitsBefore(activeInput.getText().toString(), activeInput.getSelectionStart());
                     String digits = digitsOnly(activeInput);
+                    if (pendingCommaBackspace && pendingCommaBackspaceDigitIndex >= 0 && pendingCommaBackspaceDigitIndex < digits.length()) {
+                        digits = digits.substring(0, pendingCommaBackspaceDigitIndex)
+                                + digits.substring(pendingCommaBackspaceDigitIndex + 1);
+                        digitCursor = pendingCommaBackspaceDigitIndex;
+                    }
                     String formatted = digits.isEmpty() ? "" : formatPlain(parseDigits(digits));
                     if (!formatted.equals(activeInput.getText().toString())) {
                         activeInput.setText(formatted);
                         activeInput.setSelection(cursorForDigitPosition(formatted, digitCursor));
                     }
                 }
+                pendingCommaBackspace = false;
+                pendingCommaBackspaceDigitIndex = -1;
                 formattingAmounts = false;
                 calculate();
             }
