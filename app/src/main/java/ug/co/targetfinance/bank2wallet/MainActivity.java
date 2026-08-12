@@ -530,18 +530,31 @@ public class MainActivity extends Activity {
         inputFrame.setBackground(makeRoundRect(softPanel, border, dp(10)));
 
         input.setBackgroundColor(Color.TRANSPARENT);
-        input.setPadding(dp(14), 0, dp(14), 0);
+        input.setPadding(dp(14), 0, dp(44), 0);
         inputFrame.addView(input, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 dp(54)
         ));
+
+        TextView clearButton = clearInputButton(input);
+        FrameLayout.LayoutParams clearParams = new FrameLayout.LayoutParams(dp(42), dp(54));
+        clearParams.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+        inputFrame.addView(clearButton, clearParams);
+
+        input.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                clearButton.setVisibility(s.length() > 0 ? View.VISIBLE : View.GONE);
+            }
+        });
 
         wrapper.addView(inputFrame, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 dp(54)
         ));
 
-        TextView preview = smallText("");
+        TextView preview = smallText("UGX 0");
         preview.setTextSize(11);
         preview.setPadding(dp(4), dp(3), 0, 0);
         wrapper.addView(preview);
@@ -554,14 +567,31 @@ public class MainActivity extends Activity {
         input.setHint(hint);
         input.setSingleLine(true);
         input.setKeyListener(DigitsKeyListener.getInstance("0123456789"));
-        input.setRawInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        input.setRawInputType(InputType.TYPE_CLASS_NUMBER);
         input.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
         input.setTextSize(16);
         input.setTextColor(deepNavy);
         input.setHintTextColor(muted);
-        input.setPadding(dp(14), 0, dp(14), 0);
+        input.setPadding(dp(14), 0, dp(44), 0);
         input.setBackgroundColor(Color.TRANSPARENT);
         return input;
+    }
+
+    private TextView clearInputButton(EditText input) {
+        TextView clearButton = new TextView(this);
+        clearButton.setText("X");
+        clearButton.setTextColor(muted);
+        clearButton.setTextSize(14);
+        clearButton.setGravity(Gravity.CENTER);
+        clearButton.setTypeface(Typeface.DEFAULT_BOLD);
+        clearButton.setContentDescription("Clear field");
+        clearButton.setVisibility(input.getText().length() > 0 ? View.VISIBLE : View.GONE);
+        clearButton.setOnClickListener(v -> {
+            input.setText("");
+            input.requestFocus();
+            calculate();
+        });
+        return clearButton;
     }
 
     private Spinner dropdown(String[] values) {
@@ -646,8 +676,7 @@ public class MainActivity extends Activity {
 
     private void updateMoneyPreview(EditText input) {
         if (input != null && input.getTag() instanceof TextView) {
-            String digits = digitsOnly(input);
-            ((TextView) input.getTag()).setText(digits.isEmpty() ? "" : money(parseAmount(input)));
+            ((TextView) input.getTag()).setText(money(parseAmount(input)));
         }
     }
 
