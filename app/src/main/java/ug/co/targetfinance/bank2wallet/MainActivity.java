@@ -196,10 +196,7 @@ public class MainActivity extends Activity {
     private TextView splitSaveButton;
     private SplitOption currentSplitOption;
 
-    private boolean formattingAmounts = false;
     private boolean updatingBalanceModes = false;
-    private boolean pendingCommaBackspace = false;
-    private int pendingCommaBackspaceDigitIndex = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -268,10 +265,9 @@ public class MainActivity extends Activity {
         page.addView(form);
         page.addView(resultCard());
 
-        TextWatcher watcher = formattedAmountWatcher();
-        walletInput.addTextChangedListener(watcher);
-        bankInput.addTextChangedListener(watcher);
-        amountInput.addTextChangedListener(watcher);
+        walletInput.addTextChangedListener(amountWatcher(walletInput));
+        bankInput.addTextChangedListener(amountWatcher(bankInput));
+        amountInput.addTextChangedListener(amountWatcher(amountInput));
 
         AdapterView.OnItemSelectedListener dropdownListener = new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -557,6 +553,12 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 dp(54)
         ));
+
+        TextView preview = smallText("UGX 0");
+        preview.setTextSize(11);
+        preview.setPadding(dp(4), dp(3), 0, 0);
+        wrapper.addView(preview);
+        input.setTag(preview);
         return wrapper;
     }
 
@@ -565,14 +567,13 @@ public class MainActivity extends Activity {
         input.setHint(hint);
         input.setSingleLine(true);
         input.setKeyListener(DigitsKeyListener.getInstance("0123456789"));
-        input.setRawInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+        input.setRawInputType(InputType.TYPE_CLASS_NUMBER);
         input.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
         input.setTextSize(16);
         input.setTextColor(deepNavy);
         input.setHintTextColor(muted);
         input.setPadding(dp(14), 0, dp(44), 0);
         input.setBackgroundColor(Color.TRANSPARENT);
-        input.setSelectAllOnFocus(true);
         return input;
     }
 
@@ -654,73 +655,44 @@ public class MainActivity extends Activity {
         return wrapper;
     }
 
-    private TextWatcher formattedAmountWatcher() {
+    private TextWatcher amountWatcher(EditText input) {
         return new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-                pendingCommaBackspace = false;
-                pendingCommaBackspaceDigitIndex = -1;
-                if (formattingAmounts || count <= after || count != 1 || start < 0 || start >= s.length()) {
-                    return;
-                }
-                if (s.charAt(start) == ',') {
-                    int digitsBeforeComma = countDigitsBefore(s.toString(), start);
-                    if (digitsBeforeComma > 0) {
-                        pendingCommaBackspace = true;
-                        pendingCommaBackspaceDigitIndex = digitsBeforeComma - 1;
-                    }
-                }
-            }
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
             @Override public void afterTextChanged(Editable s) {
-                if (formattingAmounts) return;
-
-                formattingAmounts = true;
-                EditText activeInput = getCurrentFocus() instanceof EditText ? (EditText) getCurrentFocus() : null;
-                if (activeInput != null && activeInput.getText() == s) {
-                    int digitCursor = countDigitsBefore(activeInput.getText().toString(), activeInput.getSelectionStart());
-                    String digits = digitsOnly(activeInput);
-                    if (pendingCommaBackspace && pendingCommaBackspaceDigitIndex >= 0 && pendingCommaBackspaceDigitIndex < digits.length()) {
-                        digits = digits.substring(0, pendingCommaBackspaceDigitIndex)
-                                + digits.substring(pendingCommaBackspaceDigitIndex + 1);
-                        digitCursor = pendingCommaBackspaceDigitIndex;
-                    }
-                    String formatted = digits.isEmpty() ? "" : formatPlain(parseDigits(digits));
-                    if (!formatted.equals(activeInput.getText().toString())) {
-                        activeInput.setText(formatted);
-                        activeInput.setSelection(cursorForDigitPosition(formatted, digitCursor));
-                    }
+                String raw = s.toString();
+                String digits = normalizeDigits(raw);
+                if (!raw.equals(digits)) {
+                    int selection = Math.min(input.getSelectionStart(), digits.length());
+                    input.setText(digits);
+                    input.setSelection(Math.max(selection, 0));
+                    return;
                 }
-                pendingCommaBackspace = false;
-                pendingCommaBackspaceDigitIndex = -1;
-                formattingAmounts = false;
+                updateMoneyPreview(input);
                 calculate();
             }
         };
     }
 
-    private int countDigitsBefore(String value, int cursor) {
-        int safeCursor = Math.max(0, Math.min(cursor, value.length()));
-        int count = 0;
-        for (int i = 0; i < safeCursor; i++) {
-            if (Character.isDigit(value.charAt(i))) {
-                count++;
-            }
+    private void updateMoneyPreview(EditText input) {
+        if (input != null && input.getTag() instanceof TextView) {
+            ((TextView) input.getTag()).setText(money(parseAmount(input)));
         }
-        return count;
     }
 
-    private int cursorForDigitPosition(String value, int digitPosition) {
-        if (digitPosition <= 0) return 0;
-        int seen = 0;
+    private String normalizeDigits(String value) {
+        if (value == null || value.isEmpty()) return "";
+        StringBuilder builder = new StringBuilder();
         for (int i = 0; i < value.length(); i++) {
-            if (Character.isDigit(value.charAt(i))) {
-                seen++;
-                if (seen == digitPosition) {
-                    return i + 1;
-                }
+            char c = value.charAt(i);
+            if (Character.isDigit(c)) {
+                builder.append(c);
             }
         }
-        return value.length();
+        while (builder.length() > 0 && builder.charAt(0) == '0') {
+            builder.deleteCharAt(0);
+        }
+        return builder.toString();
     }
 
     private void updateDynamicSections() {
