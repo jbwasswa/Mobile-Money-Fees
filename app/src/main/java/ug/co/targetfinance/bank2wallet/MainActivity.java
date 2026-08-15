@@ -1072,19 +1072,23 @@ public class MainActivity extends Activity {
                 addAdviceText(content, "This transfer reaches the desired residual exactly.");
             }
         } else if (cashWithdrawal) {
-            addAdviceRow(content, "Initiate withdrawal", money(maxInitiated));
-            addAdviceRow(content, "Estimated deductions", money(maxCost));
-            addAdviceText(content, "If cash at hand is " + money(amount) + ", initiate " + money(maxInitiated) + " withdrawal.");
-            addAdviceText(content, "To withdraw exactly " + money(amount) + ", you need at least " + money(totalDebit) + " available.");
+            addAdviceRow(content, "Cash to receive", money(amount));
+            addAdviceRow(content, "Wallet needed", money(totalDebit));
+            addAdviceText(content, "To withdraw exactly " + money(amount) + ", initiate a " + money(amount) + " withdrawal.");
+            if (maxInitiated > 0) {
+                addAdviceRow(content, "Max withdrawal from " + money(amount), money(maxInitiated));
+                addAdviceRow(content, "Estimated deductions", money(maxCost));
+                addAdviceText(content, "Use this only if " + money(amount) + " is your available wallet balance.");
+            }
         } else {
-            addAdviceRow(content, "Initiate transfer", money(maxInitiated));
-            addAdviceRow(content, "Estimated fee", money(maxCost));
-            addAdviceText(content, "If your available balance is " + money(amount) + ", initiate " + money(maxInitiated) + " transfer.");
-            addAdviceText(content, "To deliver exactly " + money(amount) + ", you need at least " + money(totalDebit) + " available.");
-        }
-
-        if (maxInitiated <= 0) {
-            addAdviceText(content, "The entered balance is not enough to cover the minimum tariff cost.", danger);
+            addAdviceRow(content, "Amount to deliver", money(amount));
+            addAdviceRow(content, "Wallet needed", money(totalDebit));
+            addAdviceText(content, "To deliver exactly " + money(amount) + ", initiate a " + money(amount) + " transfer.");
+            if (maxInitiated > 0) {
+                addAdviceRow(content, "Max transfer from " + money(amount), money(maxInitiated));
+                addAdviceRow(content, "Estimated fee", money(maxCost));
+                addAdviceText(content, "Use this only if " + money(amount) + " is your available wallet balance.");
+            }
         }
 
         new AlertDialog.Builder(this)
