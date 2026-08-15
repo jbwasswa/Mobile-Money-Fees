@@ -997,9 +997,10 @@ public class MainActivity extends Activity {
         addAdviceRow(content, "Total fee/deductions", money(currentSplitOption.singleCost));
 
         addAdviceSection(content, "Better Split Option");
-        addAdviceRow(content, "First transfer", money(currentSplitOption.firstPart));
+        String action = capitalize(transactionActionName());
+        addAdviceRow(content, "First " + action, money(currentSplitOption.firstPart));
         addAdviceRow(content, "First charge", money(currentSplitOption.firstCost));
-        addAdviceRow(content, "Second transfer", money(currentSplitOption.secondPart));
+        addAdviceRow(content, "Second " + action, money(currentSplitOption.secondPart));
         addAdviceRow(content, "Second charge", money(currentSplitOption.secondCost));
         addAdviceRow(content, "Total fee/deductions", money(currentSplitOption.splitCost));
 
@@ -1028,13 +1029,21 @@ public class MainActivity extends Activity {
 
         boolean cashWithdrawal = isCashWithdrawal();
         boolean drainToBank = isDrainToBankMode();
+        boolean bankTransfer = isBankTransfer();
+        boolean tracksWallet = tracksWalletBalance();
+        boolean tracksBank = tracksBankBalance();
+        boolean hasWallet = hasAmount(walletInput);
+        boolean hasBank = hasAmount(bankInput);
         long fee = band.fee;
         long tax = cashWithdrawal ? withdrawalTax(amount) : 0;
         long deductions = fee + tax;
         long totalDebit = amount + deductions;
         long wallet = parseAmount(walletInput);
+        long bank = parseAmount(bankInput);
         long residual = parseAmount(residualInput);
         long walletAfter = wallet - totalDebit;
+        long bankAfter = bank + amount;
+        SplitOption splitOption = findBestSplit(amount, deductions);
 
         ScrollView scroller = new ScrollView(this);
         LinearLayout content = new LinearLayout(this);
@@ -1073,12 +1082,19 @@ public class MainActivity extends Activity {
             addAdviceRow(content, "Cash to receive", money(amount));
             addAdviceRow(content, "Wallet needed", money(totalDebit));
             addAdviceText(content, "To withdraw exactly " + money(amount) + ", initiate a " + money(amount) + " withdrawal.");
-            addReverseWithdrawalAdvice(content, amount);
         } else {
             addAdviceRow(content, "Amount to deliver", money(amount));
             addAdviceRow(content, "Wallet needed", money(totalDebit));
-            addAdviceText(content, "To deliver exactly " + money(amount) + ", initiate a " + money(amount) + " transfer.");
-            addReverseTransferAdvice(content, amount);
+            addAdviceText(content, "To deliver exactly " + money(amount) + ", initiate a " + money(amount) + " " + transactionActionName() + ".");
+        }
+        addTrackedBalanceAdvice(content, amount, totalDebit, walletAfter, bankAfter, bankTransfer, tracksWallet, tracksBank, hasWallet, hasBank);
+        addSplitOutcomeAdvice(content, amount, wallet, bank, bankTransfer, tracksWallet, tracksBank, hasWallet, hasBank, splitOption);
+        if (!tracksWallet && !drainToBank) {
+            if (cashWithdrawal) {
+                addReverseWithdrawalAdvice(content, amount);
+            } else {
+                addReverseTransferAdvice(content, amount);
+            }
         }
 
         new AlertDialog.Builder(this)
@@ -1136,6 +1152,85 @@ public class MainActivity extends Activity {
         parent.addView(view);
     }
 
+    private void addTrackedBalanceAdvice(
+            LinearLayout parent,
+            long amount,
+            long totalDebit,
+            long walletAfter,
+            long bankAfter,
+            boolean bankTransfer,
+            boolean tracksWallet,
+            boolean tracksBank,
+            boolean hasWallet,
+            boolean hasBank
+    ) {
+        if (!tracksWallet && !tracksBank) return;
+
+        addAdviceSection(parent, "Running Balances");
+        if (tracksWallet) {
+            if (hasWallet) {
+                addAdviceRow(parent, "Wallet after", money(walletAfter));
+                if (walletAfter < 0) {
+                    addAdviceText(parent, "Wallet balance is short by " + money(Math.abs(walletAfter)) + ".", danger);
+                } else {
+                    addAdviceText(parent, "This transaction debits " + money(totalDebit) + " from the wallet, leaving " + money(walletAfter) + ".");
+                }
+            } else {
+                addAdviceText(parent, "Enter wallet balance before to show wallet balance after.");
+            }
+        }
+
+        if (tracksBank && bankTransfer) {
+            if (hasBank) {
+                addAdviceRow(parent, "Bank after", money(bankAfter));
+                addAdviceText(parent, "The bank balance increases by " + money(amount) + ".");
+            } else {
+                addAdviceText(parent, "Enter bank balance before to show bank balance after.");
+            }
+        }
+    }
+
+    private void addSplitOutcomeAdvice(
+            LinearLayout parent,
+            long amount,
+            long wallet,
+            long bank,
+            boolean bankTransfer,
+            boolean tracksWallet,
+            boolean tracksBank,
+            boolean hasWallet,
+            boolean hasBank,
+            SplitOption splitOption
+    ) {
+        if (splitOption == null) return;
+
+        addAdviceSection(parent, "Split Outcome");
+        String action = capitalize(transactionActionName());
+        addAdviceRow(parent, "First " + action, money(splitOption.firstPart));
+        addAdviceRow(parent, "First charge", money(splitOption.firstCost));
+        addAdviceRow(parent, "Second " + action, money(splitOption.secondPart));
+        addAdviceRow(parent, "Second charge", money(splitOption.secondCost));
+        addAdviceRow(parent, "Total split charges", money(splitOption.splitCost));
+        addAdviceRow(parent, "Saving", money(splitOption.saving));
+
+        if (tracksWallet) {
+            if (hasWallet) {
+                long splitWalletAfter = wallet - amount - splitOption.splitCost;
+                addAdviceRow(parent, "Wallet after split", money(splitWalletAfter));
+            } else {
+                addAdviceText(parent, "Enter wallet balance before to show wallet balance after split.");
+            }
+        }
+
+        if (tracksBank && bankTransfer) {
+            if (hasBank) {
+                addAdviceRow(parent, "Bank after split", money(bank + amount));
+            } else {
+                addAdviceText(parent, "Enter bank balance before to show bank balance after split.");
+            }
+        }
+    }
+
     private void addReverseWithdrawalAdvice(LinearLayout parent, long walletBalance) {
         long practicalAmount = roundDown(maxInitiatedWithinBalance(walletBalance), 500);
         FeeBand band = findBand(practicalAmount);
@@ -1158,16 +1253,36 @@ public class MainActivity extends Activity {
         if (practicalAmount <= 0 || practicalCost < 0) return;
 
         long walletAfter = walletBalance - practicalAmount - practicalCost;
+        SplitOption splitOption = findBestSplit(practicalAmount, practicalCost);
 
         addAdviceSection(parent, "Alternative");
-        addAdviceText(parent, "If " + money(walletBalance) + " is your wallet balance, initiate a practical transfer of "
+        addAdviceText(parent, "If " + money(walletBalance) + " is your wallet balance, initiate a practical " + transactionActionName() + " of "
                 + money(practicalAmount) + ". The estimated fee is " + money(practicalCost)
                 + ", leaving about " + money(walletAfter) + " in the wallet.");
+        if (splitOption != null) {
+            long splitWalletAfter = walletBalance - practicalAmount - splitOption.splitCost;
+            addAdviceText(parent, "If you split that " + transactionActionName() + " into " + money(splitOption.firstPart) + " and "
+                    + money(splitOption.secondPart) + ", the estimated total fee falls to "
+                    + money(splitOption.splitCost) + ", leaving about " + money(splitWalletAfter)
+                    + " in the wallet.");
+        }
     }
 
     private long roundDown(long amount, long unit) {
         if (amount <= 0 || unit <= 0) return 0;
         return (amount / unit) * unit;
+    }
+
+    private String transactionActionName() {
+        int type = selectedTransactionType();
+        if (type == CASH_WITHDRAWAL) return "withdrawal";
+        if (type == BILL_PAYMENT || type == PREMIUM_BILL_PAYMENT) return "payment";
+        return "transfer";
+    }
+
+    private String capitalize(String value) {
+        if (value == null || value.isEmpty()) return "";
+        return value.substring(0, 1).toUpperCase(Locale.US) + value.substring(1);
     }
 
     private long maxInitiatedWithinBalance(long availableBalance) {
