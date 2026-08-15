@@ -961,8 +961,10 @@ public class MainActivity extends Activity {
 
             long displayFirst = Math.max(firstPart, secondPart);
             long displaySecond = Math.min(firstPart, secondPart);
+            long displayFirstCost = firstPart >= secondPart ? firstCost : secondCost;
+            long displaySecondCost = firstPart >= secondPart ? secondCost : firstCost;
             if (best == null || saving > best.saving || (saving == best.saving && displayFirst > best.firstPart)) {
-                best = new SplitOption(displayFirst, displaySecond, singleCost, splitCost, saving);
+                best = new SplitOption(displayFirst, displaySecond, displayFirstCost, displaySecondCost, singleCost, splitCost, saving);
             }
         }
         return best;
@@ -996,7 +998,9 @@ public class MainActivity extends Activity {
 
         addAdviceSection(content, "Better Split Option");
         addAdviceRow(content, "First transfer", money(currentSplitOption.firstPart));
+        addAdviceRow(content, "First charge", money(currentSplitOption.firstCost));
         addAdviceRow(content, "Second transfer", money(currentSplitOption.secondPart));
+        addAdviceRow(content, "Second charge", money(currentSplitOption.secondCost));
         addAdviceRow(content, "Total fee/deductions", money(currentSplitOption.splitCost));
 
         addAdviceSection(content, "Saving");
@@ -1382,13 +1386,17 @@ public class MainActivity extends Activity {
     private static class SplitOption {
         final long firstPart;
         final long secondPart;
+        final long firstCost;
+        final long secondCost;
         final long singleCost;
         final long splitCost;
         final long saving;
 
-        SplitOption(long firstPart, long secondPart, long singleCost, long splitCost, long saving) {
+        SplitOption(long firstPart, long secondPart, long firstCost, long secondCost, long singleCost, long splitCost, long saving) {
             this.firstPart = firstPart;
             this.secondPart = secondPart;
+            this.firstCost = firstCost;
+            this.secondCost = secondCost;
             this.singleCost = singleCost;
             this.splitCost = splitCost;
             this.saving = saving;
