@@ -184,6 +184,7 @@ public class MainActivity extends Activity {
     private EditText bankInput;
     private EditText amountInput;
     private TextView statusText;
+    private TextView transactionAmountValue;
     private TextView feeValue;
     private TextView taxValue;
     private LinearLayout taxRow;
@@ -193,6 +194,7 @@ public class MainActivity extends Activity {
     private TextView bankValue;
     private LinearLayout bankResultRow;
     private TextView totalDebitValue;
+    private TextView adviceHint;
     private TextView splitSaveButton;
     private SplitOption currentSplitOption;
 
@@ -375,6 +377,7 @@ public class MainActivity extends Activity {
         results.addView(caption);
 
         totalDebitValue = heroResult(results);
+        transactionAmountValue = resultRow(results, "Transaction Amount");
         feeValue = resultRow(results, "Transaction Fee");
         taxRow = resultRowContainer(results, "Withdraw Tax");
         taxValue = (TextView) taxRow.getTag();
@@ -383,8 +386,15 @@ public class MainActivity extends Activity {
         walletValue = resultRow(results, "Wallet Balance After");
         bankResultRow = resultRowContainer(results, "Bank Balance After");
         bankValue = (TextView) bankResultRow.getTag();
+        adviceHint = smallText("Tap to view advice / details");
+        adviceHint.setTextColor(teal);
+        adviceHint.setTypeface(Typeface.DEFAULT_BOLD);
+        adviceHint.setPadding(0, dp(10), 0, 0);
+        results.addView(adviceHint);
         splitSaveButton = splitSaveButton();
         results.addView(splitSaveButton);
+        results.setClickable(true);
+        results.setOnClickListener(v -> showCostAdviceDialog());
         return results;
     }
 
@@ -830,6 +840,7 @@ public class MainActivity extends Activity {
         long newWallet = wallet - totalDebit;
         long newBank = bank + amount;
 
+        transactionAmountValue.setText(money(amount));
         feeValue.setText(money(fee));
         taxValue.setText(cashWithdrawal ? money(tax) : "UGX 0");
         deductionsValue.setText(cashWithdrawal ? money(deductions) : "UGX 0");
@@ -848,6 +859,7 @@ public class MainActivity extends Activity {
     }
 
     private void showEmptyResult(String message) {
+        transactionAmountValue.setText("UGX 0");
         feeValue.setText("UGX 0");
         taxValue.setText("UGX 0");
         deductionsValue.setText("UGX 0");
@@ -942,6 +954,90 @@ public class MainActivity extends Activity {
                 .setMessage(message)
                 .setPositiveButton("Got it", null)
                 .show();
+    }
+
+    private void showCostAdviceDialog() {
+        long amount = parseAmount(amountInput);
+        FeeBand band = findBand(amount);
+        if (amount <= 0 || band == null) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Advice & Details")
+                    .setMessage("Enter a valid transaction amount first.")
+                    .setPositiveButton("Got it", null)
+                    .show();
+            return;
+        }
+
+        boolean cashWithdrawal = isCashWithdrawal();
+        long fee = band.fee;
+        long tax = cashWithdrawal ? withdrawalTax(amount) : 0;
+        long deductions = fee + tax;
+        long totalDebit = amount + deductions;
+        long maxInitiated = maxInitiatedWithinBalance(amount);
+        long maxCost = maxInitiated > 0 ? transactionCost(maxInitiated, selectedBands()) : 0;
+
+        StringBuilder message = new StringBuilder();
+        message.append("Provider: ").append(selectedProviderDisplayName()).append("\n");
+        message.append("Transaction type: ").append(selectedTransactionName()).append("\n");
+        message.append("Transaction amount: ").append(money(amount)).append("\n\n");
+        message.append("Fee: ").append(money(fee)).append("\n");
+        if (cashWithdrawal) {
+            message.append("Withdraw tax: ").append(money(tax)).append("\n");
+            message.append("Total deductions: ").append(money(deductions)).append("\n");
+        }
+        message.append("Total amount deducted: ").append(money(totalDebit)).append("\n\n");
+
+        if (cashWithdrawal) {
+            message.append("If cash at hand is ").append(money(amount)).append(", initiate ")
+                    .append(money(maxInitiated)).append(" withdrawal.\n");
+            message.append("Estimated deductions on that withdrawal: ").append(money(maxCost)).append(".\n\n");
+            message.append("To withdraw exactly ").append(money(amount)).append(", you need at least ")
+                    .append(money(totalDebit)).append(" available.");
+        } else {
+            message.append("If your available balance is ").append(money(amount)).append(", initiate ")
+                    .append(money(maxInitiated)).append(" transfer.\n");
+            message.append("Estimated fee on that transfer: ").append(money(maxCost)).append(".\n\n");
+            message.append("To deliver exactly ").append(money(amount)).append(", you need at least ")
+                    .append(money(totalDebit)).append(" available.");
+        }
+
+        if (maxInitiated <= 0) {
+            message.append("\n\nThe entered balance is not enough to cover the minimum tariff cost.");
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Advice & Details")
+                .setMessage(message.toString())
+                .setPositiveButton("Got it", null)
+                .show();
+    }
+
+    private long maxInitiatedWithinBalance(long availableBalance) {
+        if (availableBalance <= 0) return 0;
+        FeeBand[] bands = selectedBands();
+        long minAmount = Long.MAX_VALUE;
+        long maxAmount = 0;
+        for (FeeBand band : bands) {
+            minAmount = Math.min(minAmount, band.min);
+            maxAmount = Math.max(maxAmount, band.max);
+        }
+        if (minAmount == Long.MAX_VALUE || availableBalance < minAmount) return 0;
+
+        long low = minAmount;
+        long high = Math.min(availableBalance, maxAmount);
+        long best = 0;
+
+        while (low <= high) {
+            long mid = (low + high) / 2;
+            long cost = transactionCost(mid, bands);
+            if (cost >= 0 && mid + cost <= availableBalance) {
+                best = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+        return best;
     }
 
     private String balanceStatus(boolean hasWallet, boolean hasBank, boolean bankTransfer, boolean tracksWallet, boolean tracksBank) {
