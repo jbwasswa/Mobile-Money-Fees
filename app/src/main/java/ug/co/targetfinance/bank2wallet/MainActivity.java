@@ -39,6 +39,7 @@ public class MainActivity extends Activity {
     private final int airtelRed = Color.rgb(224, 0, 0);
     private final int mtnYellow = Color.rgb(255, 204, 0);
     private final int muted = Color.rgb(92, 111, 122);
+    private final int warning = Color.rgb(136, 102, 0);
     private final int danger = Color.rgb(200, 35, 51);
     private final int border = Color.rgb(207, 222, 224);
     private final int pageBg = Color.rgb(235, 244, 243);
@@ -812,7 +813,7 @@ public class MainActivity extends Activity {
             tintSelectedSpinnerText(transactionTypeSpinner, Color.WHITE);
         }
         if (statusText != null) {
-            statusText.setTextColor(text == Color.WHITE ? airtelRed : Color.rgb(136, 102, 0));
+            statusText.setTextColor(muted);
         }
     }
 
@@ -886,11 +887,16 @@ public class MainActivity extends Activity {
             statusText.setText("Insufficient wallet balance after fee.");
             statusText.setTextColor(danger);
         } else if (drainToBank) {
-            statusText.setText("Drain to Bank calculated. Wallet after will be " + money(newWallet) + ".");
-            statusText.setTextColor(selectedProvider().equals("MTN") ? Color.rgb(136, 102, 0) : airtelRed);
+            if (newWallet > residual) {
+                statusText.setText("Closest Drain to Bank option leaves " + money(newWallet) + ".");
+                statusText.setTextColor(warning);
+            } else {
+                statusText.setText("Drain to Bank calculated. Wallet after will be " + money(newWallet) + ".");
+                statusText.setTextColor(teal);
+            }
         } else {
             statusText.setText(balanceStatus(hasWallet, hasBank, bankTransfer, tracksWallet, tracksBank));
-            statusText.setTextColor(selectedProvider().equals("MTN") ? Color.rgb(136, 102, 0) : airtelRed);
+            statusText.setTextColor(muted);
         }
     }
 
