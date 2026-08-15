@@ -1032,8 +1032,6 @@ public class MainActivity extends Activity {
         long tax = cashWithdrawal ? withdrawalTax(amount) : 0;
         long deductions = fee + tax;
         long totalDebit = amount + deductions;
-        long maxInitiated = maxInitiatedWithinBalance(amount);
-        long maxCost = maxInitiated > 0 ? transactionCost(maxInitiated, selectedBands()) : 0;
         long wallet = parseAmount(walletInput);
         long residual = parseAmount(residualInput);
         long walletAfter = wallet - totalDebit;
@@ -1075,20 +1073,10 @@ public class MainActivity extends Activity {
             addAdviceRow(content, "Cash to receive", money(amount));
             addAdviceRow(content, "Wallet needed", money(totalDebit));
             addAdviceText(content, "To withdraw exactly " + money(amount) + ", initiate a " + money(amount) + " withdrawal.");
-            if (maxInitiated > 0) {
-                addAdviceRow(content, "Max withdrawal from " + money(amount), money(maxInitiated));
-                addAdviceRow(content, "Estimated deductions", money(maxCost));
-                addAdviceText(content, "Use this only if " + money(amount) + " is your available wallet balance.");
-            }
         } else {
             addAdviceRow(content, "Amount to deliver", money(amount));
             addAdviceRow(content, "Wallet needed", money(totalDebit));
             addAdviceText(content, "To deliver exactly " + money(amount) + ", initiate a " + money(amount) + " transfer.");
-            if (maxInitiated > 0) {
-                addAdviceRow(content, "Max transfer from " + money(amount), money(maxInitiated));
-                addAdviceRow(content, "Estimated fee", money(maxCost));
-                addAdviceText(content, "Use this only if " + money(amount) + " is your available wallet balance.");
-            }
         }
 
         new AlertDialog.Builder(this)
