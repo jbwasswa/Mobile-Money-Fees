@@ -1137,7 +1137,7 @@ public class MainActivity extends Activity {
     }
 
     private void addReverseWithdrawalAdvice(LinearLayout parent, long walletBalance) {
-        long practicalAmount = practicalAmountFromBalance(walletBalance);
+        long practicalAmount = roundDown(maxInitiatedWithinBalance(walletBalance), 500);
         FeeBand band = findBand(practicalAmount);
         if (practicalAmount <= 0 || band == null) return;
 
@@ -1153,7 +1153,7 @@ public class MainActivity extends Activity {
     }
 
     private void addReverseTransferAdvice(LinearLayout parent, long walletBalance) {
-        long practicalAmount = practicalAmountFromBalance(walletBalance);
+        long practicalAmount = maxInitiatedWithinBalance(walletBalance);
         long practicalCost = transactionCost(practicalAmount, selectedBands());
         if (practicalAmount <= 0 || practicalCost < 0) return;
 
@@ -1161,13 +1161,8 @@ public class MainActivity extends Activity {
 
         addAdviceSection(parent, "Alternative");
         addAdviceText(parent, "If " + money(walletBalance) + " is your wallet balance, initiate a practical transfer of "
-                + money(practicalAmount) + ". This is rounded down to the nearest UGX 500; the estimated fee is "
-                + money(practicalCost) + ", leaving about " + money(walletAfter) + " in the wallet.");
-    }
-
-    private long practicalAmountFromBalance(long walletBalance) {
-        long maxInitiated = maxInitiatedWithinBalance(walletBalance);
-        return roundDown(maxInitiated, 500);
+                + money(practicalAmount) + ". The estimated fee is " + money(practicalCost)
+                + ", leaving about " + money(walletAfter) + " in the wallet.");
     }
 
     private long roundDown(long amount, long unit) {
