@@ -432,6 +432,7 @@ public class MainActivity extends Activity {
         addHelpOption(content, "Quick fees", "Shows the transaction fee and wallet debit without tracking balances.");
         addHelpOption(content, "Wallet only", "Enter wallet balance before; the app shows the wallet balance after the transaction.");
         addHelpOption(content, "Wallet + bank", "For Mobile to Bank only; shows both wallet after and bank balance after.");
+        addHelpOption(content, "Drain to Bank", "For Mobile to Bank only; enter the current wallet balance and optional desired residual. The app recommends the transfer amount and still checks whether splitting can save fees.");
 
         addHelpSection(content, "Note");
         addHelpOption(content, "Billers", "MTN MoMo and Airtel Money group billers differently, so choose based on the selected service provider's tariff list.");
@@ -983,18 +984,28 @@ public class MainActivity extends Activity {
     private void showSplitOptionDialog() {
         if (currentSplitOption == null) return;
 
-        String message =
-                "Current option\n" +
-                        "Send " + money(currentPreviewAmount) + " once\n" +
-                        "Total fee/deductions: " + money(currentSplitOption.singleCost) + "\n\n" +
-                        "Better split option\n" +
-                        "Send " + money(currentSplitOption.firstPart) + " + " + money(currentSplitOption.secondPart) + "\n" +
-                        "Total fee/deductions: " + money(currentSplitOption.splitCost) + "\n\n" +
-                        "You may save " + money(currentSplitOption.saving) + ".";
+        ScrollView scroller = new ScrollView(this);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(20), dp(8), dp(20), 0);
+        scroller.addView(content);
+
+        addAdviceSection(content, "Current Option");
+        addAdviceRow(content, "Send once", money(currentPreviewAmount));
+        addAdviceRow(content, "Total fee/deductions", money(currentSplitOption.singleCost));
+
+        addAdviceSection(content, "Better Split Option");
+        addAdviceRow(content, "First transfer", money(currentSplitOption.firstPart));
+        addAdviceRow(content, "Second transfer", money(currentSplitOption.secondPart));
+        addAdviceRow(content, "Total fee/deductions", money(currentSplitOption.splitCost));
+
+        addAdviceSection(content, "Saving");
+        addAdviceRow(content, "You may save", money(currentSplitOption.saving));
+        addAdviceText(content, "Use the split only where it matches the actual transaction you intend to make.");
 
         new AlertDialog.Builder(this)
                 .setTitle("Split to Save")
-                .setMessage(message)
+                .setView(scroller)
                 .setPositiveButton("Got it", null)
                 .show();
     }
@@ -1023,53 +1034,108 @@ public class MainActivity extends Activity {
         long residual = parseAmount(residualInput);
         long walletAfter = wallet - totalDebit;
 
-        StringBuilder message = new StringBuilder();
-        message.append("Provider: ").append(selectedProviderDisplayName()).append("\n");
-        message.append("Transaction type: ").append(selectedTransactionName()).append("\n");
-        if (drainToBank) {
-            message.append("Mode: Drain to Bank\n");
-            message.append("Wallet balance before: ").append(money(wallet)).append("\n");
-            message.append("Desired residual: ").append(money(residual)).append("\n");
-        }
-        message.append("Transaction amount: ").append(money(amount)).append("\n\n");
-        message.append("Fee: ").append(money(fee)).append("\n");
-        if (cashWithdrawal) {
-            message.append("Withdraw tax: ").append(money(tax)).append("\n");
-            message.append("Total deductions: ").append(money(deductions)).append("\n");
-        }
-        message.append("Total amount deducted: ").append(money(totalDebit)).append("\n\n");
+        ScrollView scroller = new ScrollView(this);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(20), dp(8), dp(20), 0);
+        scroller.addView(content);
 
+        addAdviceSection(content, "Transaction");
+        addAdviceRow(content, "Provider", selectedProviderDisplayName());
+        addAdviceRow(content, "Transaction type", selectedTransactionName());
         if (drainToBank) {
-            message.append("Recommended transfer amount is ").append(money(amount)).append(".\n");
-            message.append("Wallet after transfer will be ").append(money(walletAfter)).append(".\n\n");
+            addAdviceRow(content, "Mode", "Drain to Bank");
+            addAdviceRow(content, "Wallet balance before", money(wallet));
+            addAdviceRow(content, "Desired residual", money(residual));
+        }
+        addAdviceRow(content, "Transaction amount", money(amount));
+
+        addAdviceSection(content, "Cost");
+        addAdviceRow(content, "Fee", money(fee));
+        if (cashWithdrawal) {
+            addAdviceRow(content, "Withdraw tax", money(tax));
+            addAdviceRow(content, "Total deductions", money(deductions));
+        }
+        addAdviceRow(content, "Total amount deducted", money(totalDebit));
+
+        addAdviceSection(content, "Advice");
+        if (drainToBank) {
+            addAdviceRow(content, "Recommended transfer", money(amount));
+            addAdviceRow(content, "Wallet after transfer", money(walletAfter));
             if (walletAfter > residual) {
-                message.append("Exact residual is not available for this tariff band, so this is the closest valid transfer without overdrawing.");
+                addAdviceText(content, "Exact residual is not available for this tariff band, so this is the closest valid transfer without overdrawing.", warning);
             } else {
-                message.append("This transfer reaches the desired residual exactly.");
+                addAdviceText(content, "This transfer reaches the desired residual exactly.");
             }
         } else if (cashWithdrawal) {
-            message.append("If cash at hand is ").append(money(amount)).append(", initiate ")
-                    .append(money(maxInitiated)).append(" withdrawal.\n");
-            message.append("Estimated deductions on that withdrawal: ").append(money(maxCost)).append(".\n\n");
-            message.append("To withdraw exactly ").append(money(amount)).append(", you need at least ")
-                    .append(money(totalDebit)).append(" available.");
+            addAdviceRow(content, "Initiate withdrawal", money(maxInitiated));
+            addAdviceRow(content, "Estimated deductions", money(maxCost));
+            addAdviceText(content, "If cash at hand is " + money(amount) + ", initiate " + money(maxInitiated) + " withdrawal.");
+            addAdviceText(content, "To withdraw exactly " + money(amount) + ", you need at least " + money(totalDebit) + " available.");
         } else {
-            message.append("If your available balance is ").append(money(amount)).append(", initiate ")
-                    .append(money(maxInitiated)).append(" transfer.\n");
-            message.append("Estimated fee on that transfer: ").append(money(maxCost)).append(".\n\n");
-            message.append("To deliver exactly ").append(money(amount)).append(", you need at least ")
-                    .append(money(totalDebit)).append(" available.");
+            addAdviceRow(content, "Initiate transfer", money(maxInitiated));
+            addAdviceRow(content, "Estimated fee", money(maxCost));
+            addAdviceText(content, "If your available balance is " + money(amount) + ", initiate " + money(maxInitiated) + " transfer.");
+            addAdviceText(content, "To deliver exactly " + money(amount) + ", you need at least " + money(totalDebit) + " available.");
         }
 
         if (maxInitiated <= 0) {
-            message.append("\n\nThe entered balance is not enough to cover the minimum tariff cost.");
+            addAdviceText(content, "The entered balance is not enough to cover the minimum tariff cost.", danger);
         }
 
         new AlertDialog.Builder(this)
                 .setTitle("Advice & Details")
-                .setMessage(message.toString())
+                .setView(scroller)
                 .setPositiveButton("Got it", null)
                 .show();
+    }
+
+    private void addAdviceSection(LinearLayout parent, String heading) {
+        TextView view = new TextView(this);
+        view.setText(heading);
+        view.setTextColor(teal);
+        view.setTextSize(15);
+        view.setTypeface(Typeface.DEFAULT_BOLD);
+        view.setPadding(0, dp(12), 0, dp(5));
+        parent.addView(view);
+    }
+
+    private void addAdviceRow(LinearLayout parent, String label, String value) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, dp(4), 0, dp(4));
+
+        TextView labelView = new TextView(this);
+        labelView.setText(label);
+        labelView.setTextColor(muted);
+        labelView.setTextSize(13);
+        labelView.setTypeface(Typeface.DEFAULT_BOLD);
+        row.addView(labelView, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        TextView valueView = new TextView(this);
+        valueView.setText(value);
+        valueView.setTextColor(deepNavy);
+        valueView.setTextSize(14);
+        valueView.setGravity(Gravity.END);
+        valueView.setTypeface(Typeface.DEFAULT_BOLD);
+        row.addView(valueView, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        parent.addView(row);
+    }
+
+    private void addAdviceText(LinearLayout parent, String text) {
+        addAdviceText(parent, text, muted);
+    }
+
+    private void addAdviceText(LinearLayout parent, String text, int color) {
+        TextView view = new TextView(this);
+        view.setText(text);
+        view.setTextColor(color);
+        view.setTextSize(13);
+        view.setLineSpacing(dp(2), 1.0f);
+        view.setPadding(0, dp(6), 0, 0);
+        parent.addView(view);
     }
 
     private long maxInitiatedWithinBalance(long availableBalance) {
