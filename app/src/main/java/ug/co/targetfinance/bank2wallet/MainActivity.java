@@ -60,7 +60,8 @@ public class MainActivity extends Activity {
     private static final String[] BALANCE_MODES = {
             "Quick fees",
             "Wallet only",
-            "Wallet + bank"
+            "Wallet + bank",
+            "Drain to Bank"
     };
 
     private static final FeeBand[] MTN_MOBILE_TO_MOBILE = {
@@ -178,10 +179,13 @@ public class MainActivity extends Activity {
     private Spinner transactionTypeSpinner;
     private Spinner balanceModeSpinner;
     private LinearLayout balanceSection;
+    private View amountField;
     private View walletField;
     private View bankField;
+    private View residualField;
     private EditText walletInput;
     private EditText bankInput;
+    private EditText residualInput;
     private EditText amountInput;
     private TextView statusText;
     private TextView transactionAmountValue;
@@ -197,6 +201,7 @@ public class MainActivity extends Activity {
     private TextView adviceHint;
     private TextView splitSaveButton;
     private SplitOption currentSplitOption;
+    private long currentPreviewAmount = 0;
 
     private boolean formattingAmounts = false;
     private boolean updatingBalanceModes = false;
@@ -249,16 +254,21 @@ public class MainActivity extends Activity {
 
         walletInput = moneyInput("Wallet balance before");
         bankInput = moneyInput("Bank balance before");
+        residualInput = moneyInput("Desired residual balance");
+        residualInput.setText("0");
         amountInput = moneyInput("Transaction amount");
 
         balanceSection = new LinearLayout(this);
         balanceSection.setOrientation(LinearLayout.VERTICAL);
         walletField = field("Wallet Balance Before", walletInput);
+        residualField = field("Desired Residual Balance", residualInput);
         bankField = field("Bank Balance Before", bankInput);
         balanceSection.addView(walletField);
+        balanceSection.addView(residualField);
         balanceSection.addView(bankField);
 
-        form.addView(field("Transaction Amount", amountInput));
+        amountField = field("Transaction Amount", amountInput);
+        form.addView(amountField);
         form.addView(balanceSection);
 
         statusText = new TextView(this);
@@ -273,6 +283,7 @@ public class MainActivity extends Activity {
         TextWatcher watcher = formattedAmountWatcher();
         walletInput.addTextChangedListener(watcher);
         bankInput.addTextChangedListener(watcher);
+        residualInput.addTextChangedListener(watcher);
         amountInput.addTextChangedListener(watcher);
 
         AdapterView.OnItemSelectedListener dropdownListener = new AdapterView.OnItemSelectedListener() {
@@ -735,13 +746,20 @@ public class MainActivity extends Activity {
 
     private void updateDynamicSections() {
         if (updatingBalanceModes) return;
+        boolean drainToBank = isDrainToBankMode();
         boolean tracksWallet = tracksWalletBalance();
         boolean tracksBank = tracksBankBalance();
+        if (amountField != null) {
+            amountField.setVisibility(drainToBank ? View.GONE : View.VISIBLE);
+        }
         if (balanceSection != null) {
-            balanceSection.setVisibility(tracksWallet || tracksBank ? View.VISIBLE : View.GONE);
+            balanceSection.setVisibility(tracksWallet || tracksBank || drainToBank ? View.VISIBLE : View.GONE);
         }
         if (walletField != null) {
             walletField.setVisibility(tracksWallet ? View.VISIBLE : View.GONE);
+        }
+        if (residualField != null) {
+            residualField.setVisibility(drainToBank ? View.VISIBLE : View.GONE);
         }
         if (bankField != null) {
             bankField.setVisibility(tracksBank ? View.VISIBLE : View.GONE);
@@ -813,6 +831,7 @@ public class MainActivity extends Activity {
 
         boolean bankTransfer = isBankTransfer();
         boolean cashWithdrawal = isCashWithdrawal();
+        boolean drainToBank = isDrainToBankMode();
         boolean tracksWallet = tracksWalletBalance();
         boolean tracksBank = tracksBankBalance();
         boolean hasWallet = hasAmount(walletInput);
@@ -820,11 +839,24 @@ public class MainActivity extends Activity {
 
         long wallet = parseAmount(walletInput);
         long bank = parseAmount(bankInput);
-        long amount = parseAmount(amountInput);
+        long residual = parseAmount(residualInput);
+        long amount = drainToBank ? 0 : parseAmount(amountInput);
+        if (drainToBank) {
+            if (!hasWallet) {
+                showEmptyResult("Enter wallet balance before.");
+                return;
+            }
+            if (residual >= wallet) {
+                showEmptyResult("Desired residual must be below wallet balance.");
+                statusText.setTextColor(danger);
+                return;
+            }
+            amount = maxInitiatedWithinBalance(wallet - residual);
+        }
         FeeBand band = findBand(amount);
 
         if (amount <= 0) {
-            showEmptyResult("Enter a transaction amount.");
+            showEmptyResult(drainToBank ? "Wallet balance is too low for the selected tariff range." : "Enter a transaction amount.");
             return;
         }
         if (band == null) {
@@ -839,6 +871,7 @@ public class MainActivity extends Activity {
         long totalDebit = amount + fee + tax;
         long newWallet = wallet - totalDebit;
         long newBank = bank + amount;
+        currentPreviewAmount = amount;
 
         transactionAmountValue.setText(money(amount));
         feeValue.setText(money(fee));
@@ -852,6 +885,9 @@ public class MainActivity extends Activity {
         if (tracksWallet && hasWallet && newWallet < 0) {
             statusText.setText("Insufficient wallet balance after fee.");
             statusText.setTextColor(danger);
+        } else if (drainToBank) {
+            statusText.setText("Drain to Bank calculated. Wallet after will be " + money(newWallet) + ".");
+            statusText.setTextColor(selectedProvider().equals("MTN") ? Color.rgb(136, 102, 0) : airtelRed);
         } else {
             statusText.setText(balanceStatus(hasWallet, hasBank, bankTransfer, tracksWallet, tracksBank));
             statusText.setTextColor(selectedProvider().equals("MTN") ? Color.rgb(136, 102, 0) : airtelRed);
@@ -859,6 +895,7 @@ public class MainActivity extends Activity {
     }
 
     private void showEmptyResult(String message) {
+        currentPreviewAmount = 0;
         transactionAmountValue.setText("UGX 0");
         feeValue.setText("UGX 0");
         taxValue.setText("UGX 0");
@@ -942,7 +979,7 @@ public class MainActivity extends Activity {
 
         String message =
                 "Current option\n" +
-                        "Send " + money(parseAmount(amountInput)) + " once\n" +
+                        "Send " + money(currentPreviewAmount) + " once\n" +
                         "Total fee/deductions: " + money(currentSplitOption.singleCost) + "\n\n" +
                         "Better split option\n" +
                         "Send " + money(currentSplitOption.firstPart) + " + " + money(currentSplitOption.secondPart) + "\n" +
@@ -957,7 +994,7 @@ public class MainActivity extends Activity {
     }
 
     private void showCostAdviceDialog() {
-        long amount = parseAmount(amountInput);
+        long amount = isDrainToBankMode() ? currentPreviewAmount : parseAmount(amountInput);
         FeeBand band = findBand(amount);
         if (amount <= 0 || band == null) {
             new AlertDialog.Builder(this)
@@ -969,16 +1006,25 @@ public class MainActivity extends Activity {
         }
 
         boolean cashWithdrawal = isCashWithdrawal();
+        boolean drainToBank = isDrainToBankMode();
         long fee = band.fee;
         long tax = cashWithdrawal ? withdrawalTax(amount) : 0;
         long deductions = fee + tax;
         long totalDebit = amount + deductions;
         long maxInitiated = maxInitiatedWithinBalance(amount);
         long maxCost = maxInitiated > 0 ? transactionCost(maxInitiated, selectedBands()) : 0;
+        long wallet = parseAmount(walletInput);
+        long residual = parseAmount(residualInput);
+        long walletAfter = wallet - totalDebit;
 
         StringBuilder message = new StringBuilder();
         message.append("Provider: ").append(selectedProviderDisplayName()).append("\n");
         message.append("Transaction type: ").append(selectedTransactionName()).append("\n");
+        if (drainToBank) {
+            message.append("Mode: Drain to Bank\n");
+            message.append("Wallet balance before: ").append(money(wallet)).append("\n");
+            message.append("Desired residual: ").append(money(residual)).append("\n");
+        }
         message.append("Transaction amount: ").append(money(amount)).append("\n\n");
         message.append("Fee: ").append(money(fee)).append("\n");
         if (cashWithdrawal) {
@@ -987,7 +1033,15 @@ public class MainActivity extends Activity {
         }
         message.append("Total amount deducted: ").append(money(totalDebit)).append("\n\n");
 
-        if (cashWithdrawal) {
+        if (drainToBank) {
+            message.append("Recommended transfer amount is ").append(money(amount)).append(".\n");
+            message.append("Wallet after transfer will be ").append(money(walletAfter)).append(".\n\n");
+            if (walletAfter > residual) {
+                message.append("Exact residual is not available for this tariff band, so this is the closest valid transfer without overdrawing.");
+            } else {
+                message.append("This transfer reaches the desired residual exactly.");
+            }
+        } else if (cashWithdrawal) {
             message.append("If cash at hand is ").append(money(amount)).append(", initiate ")
                     .append(money(maxInitiated)).append(" withdrawal.\n");
             message.append("Estimated deductions on that withdrawal: ").append(money(maxCost)).append(".\n\n");
@@ -1106,11 +1160,15 @@ public class MainActivity extends Activity {
     }
 
     private boolean tracksWalletBalance() {
-        return selectedBalanceMode() > 0;
+        return selectedBalanceMode() > 0 || isDrainToBankMode();
     }
 
     private boolean tracksBankBalance() {
-        return isBankTransfer() && selectedBalanceMode() == 2;
+        return isBankTransfer() && (selectedBalanceMode() == 2 || isDrainToBankMode());
+    }
+
+    private boolean isDrainToBankMode() {
+        return isBankTransfer() && selectedBalanceMode() == 3;
     }
 
     private int selectedBalanceMode() {
