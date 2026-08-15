@@ -1073,10 +1073,12 @@ public class MainActivity extends Activity {
             addAdviceRow(content, "Cash to receive", money(amount));
             addAdviceRow(content, "Wallet needed", money(totalDebit));
             addAdviceText(content, "To withdraw exactly " + money(amount) + ", initiate a " + money(amount) + " withdrawal.");
+            addReverseWithdrawalAdvice(content, amount);
         } else {
             addAdviceRow(content, "Amount to deliver", money(amount));
             addAdviceRow(content, "Wallet needed", money(totalDebit));
             addAdviceText(content, "To deliver exactly " + money(amount) + ", initiate a " + money(amount) + " transfer.");
+            addReverseTransferAdvice(content, amount);
         }
 
         new AlertDialog.Builder(this)
@@ -1132,6 +1134,45 @@ public class MainActivity extends Activity {
         view.setLineSpacing(dp(2), 1.0f);
         view.setPadding(0, dp(6), 0, 0);
         parent.addView(view);
+    }
+
+    private void addReverseWithdrawalAdvice(LinearLayout parent, long walletBalance) {
+        long practicalAmount = practicalAmountFromBalance(walletBalance);
+        FeeBand band = findBand(practicalAmount);
+        if (practicalAmount <= 0 || band == null) return;
+
+        long practicalTax = withdrawalTaxFloor(practicalAmount);
+        long practicalDeductions = band.fee + practicalTax;
+        long walletAfter = walletBalance - practicalAmount - practicalDeductions;
+
+        addAdviceSection(parent, "Alternative");
+        addAdviceText(parent, "If " + money(walletBalance) + " is your wallet balance, initiate a practical withdrawal of "
+                + money(practicalAmount) + ". This is rounded down to the nearest UGX 500; the estimated fee is "
+                + money(band.fee) + " and withdraw tax is " + money(practicalTax) + ", leaving about "
+                + money(walletAfter) + " in the wallet.");
+    }
+
+    private void addReverseTransferAdvice(LinearLayout parent, long walletBalance) {
+        long practicalAmount = practicalAmountFromBalance(walletBalance);
+        long practicalCost = transactionCost(practicalAmount, selectedBands());
+        if (practicalAmount <= 0 || practicalCost < 0) return;
+
+        long walletAfter = walletBalance - practicalAmount - practicalCost;
+
+        addAdviceSection(parent, "Alternative");
+        addAdviceText(parent, "If " + money(walletBalance) + " is your wallet balance, initiate a practical transfer of "
+                + money(practicalAmount) + ". This is rounded down to the nearest UGX 500; the estimated fee is "
+                + money(practicalCost) + ", leaving about " + money(walletAfter) + " in the wallet.");
+    }
+
+    private long practicalAmountFromBalance(long walletBalance) {
+        long maxInitiated = maxInitiatedWithinBalance(walletBalance);
+        return roundDown(maxInitiated, 500);
+    }
+
+    private long roundDown(long amount, long unit) {
+        if (amount <= 0 || unit <= 0) return 0;
+        return (amount / unit) * unit;
     }
 
     private long maxInitiatedWithinBalance(long availableBalance) {
@@ -1289,6 +1330,10 @@ public class MainActivity extends Activity {
 
     private long withdrawalTax(long amount) {
         return (long) Math.ceil(amount * 0.005d);
+    }
+
+    private long withdrawalTaxFloor(long amount) {
+        return (long) Math.floor(amount * 0.005d);
     }
 
     private String formatPlain(long amount) {
